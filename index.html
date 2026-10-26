@@ -50,6 +50,21 @@
     #touch .d { left: 50px; top: 100px; }
     #touch .l { left: 0; top: 50px; }
     #touch .r { left: 100px; top: 50px; }
+    #touch .subacts {
+      display: none;
+      position: absolute;
+      right: 14px; bottom: 210px;
+      flex-direction: column; gap: 8px;
+      pointer-events: auto;
+    }
+    #touch.menuopen .subacts { display: flex; }
+    #touch .subacts button {
+      position: static;
+      width: 62px; height: 40px;
+      border-radius: 10px;
+      font-size: 14px;
+      background: rgba(20,18,26,0.78);
+    }
     #touch .only-save { display: none; }
     #touch.insave .only-save { display: block; }
     #touch.inbattle .pad, #touch.indialogue .pad { display: none; }
@@ -111,6 +126,13 @@
       <button data-key="cancel">返回</button>
       <button data-key="questlog">任务</button>
       <button class="only-save" data-key="loadslot">读取</button>
+      <button id="touch-menu" type="button">菜单</button>
+    </div>
+    <div class="subacts" id="touch-sub">
+      <button data-key="inventory">背包</button>
+      <button data-key="gear">装备</button>
+      <button data-key="partypanel">队伍</button>
+      <button data-key="savepanel">存档</button>
     </div>
   </div>
 
@@ -264,6 +286,16 @@
       el.addEventListener('mouseup', up);
       el.addEventListener('mouseleave', up);
     };
+    const menuBtn = document.getElementById('touch-menu');
+    if (menuBtn) {
+      const toggle = (e) => {
+        e.preventDefault();
+        wrap.classList.toggle('menuopen');
+        if (G.sfx) G.sfx.play('move');
+      };
+      menuBtn.addEventListener('touchstart', toggle, { passive: false });
+      menuBtn.addEventListener('mousedown', toggle);
+    }
     for (const el of wrap.querySelectorAll('[data-key]')) {
       bind(el, el.dataset.key);
     }
