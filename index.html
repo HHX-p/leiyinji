@@ -50,6 +50,12 @@
     #touch .d { left: 50px; top: 100px; }
     #touch .l { left: 0; top: 50px; }
     #touch .r { left: 100px; top: 50px; }
+    #touch.inbattle .pad { display: none; }
+    #touch.inbattle .acts {
+      flex-direction: row;
+      top: 10px; bottom: auto; right: 10px;
+    }
+    #touch.inbattle .acts button { width: 52px; height: 52px; font-size: 13px; opacity: 0.85; }
     #touch .acts button { position: static; width: 62px; height: 62px; border-radius: 50%; font-size: 15px; }
   }
   /* 竖屏提示：这个游戏只有横屏 */
@@ -267,7 +273,15 @@
   const REPEAT_RATE = 0.085;
   const REPEATABLE = { up: 1, down: 1, left: 1, right: 1 };
 
+  // 触屏点击转按键：排队到下一帧开头生效
+  G.tapQueue = [];
+  G.queueKey = function (k) { G.tapQueue.push(k); };
+
   G.updateInput = function (dt) {
+    if (G.tapQueue.length) {
+      for (const k of G.tapQueue) G.pressed[k] = true;
+      G.tapQueue.length = 0;
+    }
     for (const k in REPEATABLE) {
       if (!G.keys[k]) {
         G.held[k] = 0;
@@ -3244,6 +3258,41 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+  /** 触屏点击：命中指令行或队伍格，返回 true 表示已处理 */
+  G.battleTap = function (gx, gy) {
+    const b = G.battle;
+    if (!b || !b.active) return false;
+    if (gy < 236 || gy > 266) return false;
+
+    // 队伍格：换人
+    for (let i = 0; i < b.party.length; i++) {
+      const x = 330 + i * 34;
+      if (gx >= x && gx <= x + 30) {
+        if (i !== b.idx && b.party[i].hp > 0) {
+          b.idx = i;
+          if (G.sfx) G.sfx.play('confirm');
+        }
+        return true;
+      }
+    }
+
+    // 指令行
+    if (b.phase !== 'command') return false;
+    for (let i = 0; i < 4; i++) {
+      const x = 16 + i * 76;
+      if (gx >= x && gx <= x + 68) {
+        if (b.menu === i) {
+          G.queueKey('action');
+        } else {
+          b.menu = i;
+          if (G.sfx) G.sfx.play('move');
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
   G.startBattle = function (enemyId) {
     const b = G.battle;
     b.active = true;
@@ -4023,10 +4072,22 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     G.initCanvas(canvas);
     G.bindInput();
     G.bindTouch();
+    // 战斗里点画面 = 点指令面板
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const gx = (e.clientX - rect.left) / (G.scale || 1);
+      const gy = (e.clientY - rect.top) / (G.scale || 1);
+      if (G.battle && G.battle.active && G.battleTap) G.battleTap(gx, gy);
+    });
     await G.loadAll();
 
     G.initWorld();
     // 调试/拍摄入口：?scene=ending 直接看终章
+    // 调试/拍摄入口：?scene=battle 直接进战斗
+    if (/[?&]scene=battle/.test(location.search)) {
+      G.startBattle('slime_water');
+    }
+
     if (/[?&]scene=ending/.test(location.search)) {
       G.startEnding();
       const m = /[?&]slide=(\d+)/.exec(location.search);
@@ -4921,6 +4982,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       }
     }
     if (started) {
+      // 战斗里方向键会压住日志，收起来；点击面板代替
+      const tw = document.getElementById('touch');
+      if (tw) tw.classList.toggle('inbattle', !!(G.battle && G.battle.active));
       G.updateInput(dt);
       try {
         update(dt);
