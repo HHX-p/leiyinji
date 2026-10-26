@@ -3351,8 +3351,38 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       }
     }
 
-    // 指令行
     if (b.phase !== 'command') return false;
+
+    // 技能子菜单：三格，每格 144 宽
+    if (b.subMode === 'skill') {
+      for (let i = 0; i < 3; i++) {
+        const x = 16 + i * 152;
+        if (gx >= x && gx <= x + 144) {
+          if (b.sub === i) G.queueKey('action');
+          else { b.sub = i; if (G.sfx) G.sfx.play('move'); }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // 道具子菜单：每格 108 宽
+    if (b.subMode === 'item') {
+      const list = (G.itemList ? G.itemList() : []) || [];
+      const n = Math.max(1, Math.min(4, list.length));
+      for (let i = 0; i < n; i++) {
+        const x = 16 + i * 116;
+        if (gx >= x && gx <= x + 108) {
+          if (!list.length) { b.subMode = null; return true; }
+          if (b.sub === i) G.queueKey('action');
+          else { b.sub = i; if (G.sfx) G.sfx.play('move'); }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // 指令行
     for (let i = 0; i < 4; i++) {
       const x = 16 + i * 76;
       if (gx >= x && gx <= x + 68) {
