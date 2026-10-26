@@ -20,6 +20,38 @@
     visibility: hidden;
     box-shadow: 0 0 40px rgba(0,0,0,0.8);
   }
+  /* ---- 触屏按钮：只在触屏设备上显示 ---- */
+  #touch { display: none; }
+  @media (pointer: coarse) {
+    #touch {
+      display: block;
+      position: fixed; inset: 0;
+      pointer-events: none;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+    }
+    #touch .pad, #touch .acts { position: absolute; bottom: 14px; pointer-events: auto; }
+    #touch .pad { left: 14px; width: 150px; height: 150px; }
+    #touch .acts { right: 14px; display: flex; flex-direction: column; gap: 10px; }
+    #touch button {
+      position: absolute;
+      width: 50px; height: 50px;
+      border-radius: 12px;
+      border: 1px solid rgba(240,215,154,0.45);
+      background: rgba(20,18,26,0.55);
+      color: #f0d79a;
+      font-size: 17px;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    #touch button.on { background: rgba(240,215,154,0.32); }
+    #touch .u { left: 50px; top: 0; }
+    #touch .d { left: 50px; top: 100px; }
+    #touch .l { left: 0; top: 50px; }
+    #touch .r { left: 100px; top: 50px; }
+    #touch .acts button { position: static; width: 62px; height: 62px; border-radius: 50%; font-size: 15px; }
+  }
   #loading {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -30,6 +62,20 @@
 </head>
 <body>
   <div id="wrap"><canvas id="game"></canvas></div>
+  <div id="touch">
+    <div class="pad">
+      <button class="u" data-key="up">↑</button>
+      <button class="l" data-key="left">←</button>
+      <button class="r" data-key="right">→</button>
+      <button class="d" data-key="down">↓</button>
+    </div>
+    <div class="acts">
+      <button data-key="action">确认</button>
+      <button data-key="cancel">返回</button>
+      <button data-key="questlog">任务</button>
+    </div>
+  </div>
+
   <div id="loading">雪 ノ 下 ニ 参 道</div>
 
   <script>
@@ -146,6 +192,35 @@
     window.addEventListener('blur', () => {
       for (const k in G.keys) G.keys[k] = false;
     });
+  };
+
+  /** 触屏：把 DOM 按钮映射到同一套 keys/pressed */
+  G.bindTouch = function () {
+    const wrap = document.getElementById('touch');
+    if (!wrap) return;
+    const bind = (el, key) => {
+      const down = (e) => {
+        e.preventDefault();
+        if (G.sfx) G.sfx.init();
+        if (!G.keys[key]) G.pressed[key] = true;
+        G.keys[key] = true;
+        el.classList.add('on');
+      };
+      const up = (e) => {
+        e.preventDefault();
+        G.keys[key] = false;
+        el.classList.remove('on');
+      };
+      el.addEventListener('touchstart', down, { passive: false });
+      el.addEventListener('touchend', up, { passive: false });
+      el.addEventListener('touchcancel', up, { passive: false });
+      el.addEventListener('mousedown', down);
+      el.addEventListener('mouseup', up);
+      el.addEventListener('mouseleave', up);
+    };
+    for (const el of wrap.querySelectorAll('[data-key]')) {
+      bind(el, el.dataset.key);
+    }
   };
 
   // 每帧末清掉「刚按下」
@@ -739,6 +814,21 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   /** 通关后（看完终章演出） */
   G.postGame = function () {
     return !!(G.progress && G.progress.seen_ending);
+  };
+
+  /** 需要「走到某个地图」的任务：点明了该往哪扇门走 */
+  G.STEP_GOAL = {
+    go_torii: 'shrine',
+    enter_shrine: 'shrine',
+    ch2_start: 'town',
+    ch2_back: 'shrine',
+    ch3_start: 'depths',
+  };
+
+  /** 当前任务要求去的地图；没有则 null */
+  G.questGoalMap = function () {
+    const s = G.questCurrent();
+    return s ? (G.STEP_GOAL[s.id] || null) : null;
   };
 
   /** 当前该做的事 */
@@ -3873,6 +3963,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const canvas = document.getElementById('game');
     G.initCanvas(canvas);
     G.bindInput();
+    G.bindTouch();
     await G.loadAll();
 
     G.initWorld();
@@ -4627,6 +4718,55 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         ctx.textAlign = 'center';
         ctx.fillText('空格 交谈', bx, by + 7);
         ctx.textAlign = 'left';
+      }
+    }
+
+    // ---- 任务指引：目标门画脉冲环；不在画面内就在玩家身边画箭头 ----
+    if (!G.battle.active && G.env && !(G.ending && G.ending.active)) {
+      const goal = G.questGoalMap && G.questGoalMap();
+      const portal = goal ? (G.PORTALS || []).find((p) => p.to === goal) : null;
+      if (portal) {
+        const t = performance.now() / 1000;
+        const sx = Math.round(portal.x - G.camera.x);
+        const sy = Math.round(portal.y - G.camera.y);
+        const onScreen = sx > -20 && sx < G.VIEW_W + 20 && sy > -20 && sy < G.VIEW_H + 20;
+        if (onScreen) {
+          const r = 10 + Math.sin(t * 3) * 3;
+          ctx.strokeStyle = 'rgba(240,215,154,0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(sx, sy - 4, r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(240,215,154,0.9)';
+          ctx.font = '10px "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('目标', sx, sy - 22);
+          ctx.textAlign = 'left';
+        } else {
+          // 玩家身边画一个指向目标的箭头
+          const px = Math.round(G.player.x - G.camera.x);
+          const py = Math.round(G.player.y - G.camera.y);
+          const ang = Math.atan2(portal.y - G.player.y, portal.x - G.player.x);
+          const ax = px + Math.cos(ang) * 20;
+          const ay = py - 6 + Math.sin(ang) * 20;
+          ctx.save();
+          ctx.translate(ax, ay);
+          ctx.rotate(ang);
+          ctx.fillStyle = 'rgba(240,215,154,0.95)';
+          ctx.beginPath();
+          ctx.moveTo(6, 0);
+          ctx.lineTo(-4, -4);
+          ctx.lineTo(-4, 4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+          const dist = Math.round(Math.hypot(portal.x - G.player.x, portal.y - G.player.y) / 16);
+          ctx.fillStyle = 'rgba(240,215,154,0.85)';
+          ctx.font = '10px "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(dist + ' 步', ax, ay + 14);
+          ctx.textAlign = 'left';
+        }
       }
     }
 
