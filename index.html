@@ -2490,7 +2490,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       g.addColorStop(1, '#1a1424');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
-      const mx = W * 0.72, my = H * 0.3;
+      const mx = W * 0.72, my = H * 0.3 + Math.sin(t * 0.5) * 2;
       ctx.fillStyle = 'rgba(240,236,220,0.12)';
       ctx.beginPath(); ctx.arc(mx, my, 46, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#efe9dc';
@@ -2503,6 +2503,33 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.lineTo(480, H);
       ctx.closePath();
       ctx.fill();
+    }
+    motes(ctx, kind, t);
+  }
+
+  /** 星点、萤火：让静帧有呼吸 */
+  function motes(ctx, kind, t) {
+    const W = G.VIEW_W, H = G.VIEW_H;
+    const n = kind === 'sakura' ? 26 : 34;
+    for (let i = 0; i < n; i++) {
+      const seed = (i * 9301 + 49297) % 233280 / 233280;
+      const seed2 = (i * 4703 + 7919) % 233280 / 233280;
+      let x, y, a, r;
+      if (kind === 'torii') {
+        // 香火一样往上飘
+        x = seed * W + Math.sin(t * 0.7 + i) * 6;
+        y = (seed2 * H + H - ((t * 9 + seed * 40) % (H + 40))) % (H + 40);
+        a = 0.18 + 0.30 * (0.5 + 0.5 * Math.sin(t * 2.2 + i));
+        r = 1;
+        ctx.fillStyle = `rgba(240,190,120,${a.toFixed(3)})`;
+      } else {
+        x = seed * W;
+        y = seed2 * H * 0.75;
+        a = 0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6 + i * 1.7));
+        r = i % 5 === 0 ? 2 : 1;
+        ctx.fillStyle = `rgba(245,242,230,${a.toFixed(3)})`;
+      }
+      ctx.fillRect(Math.round(x), Math.round(y), r, r);
     }
   }
 
@@ -2559,7 +2586,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       // 落樱
       ctx.fillStyle = 'rgba(240,180,205,0.65)';
       for (const p of e.petals) {
-        ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.round(p.r + 1), 1);
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.round(p.r + 1) + 1, Math.max(1, Math.round(p.r)));
       }
       // 字幕
       const text = slideText(s);
@@ -3967,6 +3994,17 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     await G.loadAll();
 
     G.initWorld();
+    // 调试/拍摄入口：?scene=ending 直接看终章
+    if (/[?&]scene=ending/.test(location.search)) {
+      G.startEnding();
+      const m = /[?&]slide=(\d+)/.exec(location.search);
+      if (m) {
+        G.ending.slide = Number(m[1]);
+        G.ending.revealed = 260;
+        G.ending.fade = 0;
+      }
+    }
+
     G.save.load();
     applyProgress();
 
