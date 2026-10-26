@@ -50,6 +50,8 @@
     #touch .d { left: 50px; top: 100px; }
     #touch .l { left: 0; top: 50px; }
     #touch .r { left: 100px; top: 50px; }
+    #touch .only-save { display: none; }
+    #touch.insave .only-save { display: block; }
     #touch.inbattle .pad { display: none; }
     #touch.inbattle .acts {
       flex-direction: row;
@@ -103,6 +105,7 @@
       <button data-key="action">确认</button>
       <button data-key="cancel">返回</button>
       <button data-key="questlog">任务</button>
+      <button class="only-save" data-key="loadslot">读取</button>
     </div>
   </div>
 
@@ -4091,6 +4094,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         if (pm[1] === 'gear') showGear = true;
         if (pm[1] === 'party') showParty = true;
         if (pm[1] === 'quest') showQuest = true;
+        if (pm[1] === 'save') showSave = true;
+        if (pm[1] === 'shop') showShop = true;
+        if (pm[1] === 'ach') showAch = true;
       }, 300);
     }
 
@@ -4422,7 +4428,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('背 包', x + 16, y + 24);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('Esc / I 关闭', x + w - 76, y + 24);
+    ctx.fillText('返回 / I 关闭', x + w - 88, y + 24);
 
     const list = G.itemList();
     if (!list.length) {
@@ -4530,7 +4536,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText(`摩拉 ${G.progress.mora || 0}`, x + w - 16, y + 24);
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('上下选择　空格购买　Esc 关闭', x + 90, y + 24);
+    ctx.fillText('上下选择　确认购买　返回 关闭', x + 90, y + 24);
 
     G.SHOP.forEach((it, i) => {
       const ly = y + 50 + i * 21;
@@ -4538,15 +4544,20 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const owned = it.kind === 'gear' && G.gear.owned.indexOf(it.id) >= 0;
       const afford = (G.progress.mora || 0) >= it.price;
       if (sel) {
-        ctx.fillStyle = 'rgba(122,59,52,0.5)';
+        ctx.fillStyle = 'rgba(122,59,52,0.85)';
         G.roundRect(ctx, x + 10, ly - 12, w - 20, 19, 3);
         ctx.fill();
       }
       ctx.font = '10px "Microsoft YaHei", sans-serif';
-      ctx.fillStyle = owned ? 'rgba(150,142,132,0.55)' : afford ? '#f3ecde' : 'rgba(160,120,110,0.8)';
+      // 选中的一行永远提亮，否则暗底暗字看不清
+      ctx.fillStyle = owned ? 'rgba(170,162,150,0.7)'
+        : sel ? '#fff8e6'
+          : afford ? '#f3ecde' : 'rgba(180,132,120,0.9)';
       ctx.fillText(G.shopLabel(it), x + 18, ly);
       ctx.textAlign = 'right';
-      ctx.fillStyle = owned ? 'rgba(150,142,132,0.55)' : afford ? '#f0d79a' : '#c06a5a';
+      ctx.fillStyle = owned ? 'rgba(170,162,150,0.7)'
+        : sel ? '#ffd98a'
+          : afford ? '#f0d79a' : '#c06a5a';
       ctx.fillText(owned ? '已拥有' : `${it.price}`, x + w - 18, ly);
       ctx.textAlign = 'left';
     });
@@ -4572,10 +4583,20 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText(`${G.achCount()} / ${G.ACH.length}`, x + w - 16, y + 24);
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('Esc / T 关闭', x + 90, y + 24);
+    ctx.fillText('返回 / T 关闭', x + 90, y + 24);
 
-    G.ACH.forEach((a, i) => {
-      const ly = y + 50 + i * 16;
+    const aRowH = 16;
+    const aTop = y + 50;
+    const aMax = Math.max(4, Math.floor((y + h - 18 - aTop) / aRowH) + 1);
+    const firstMiss = G.ACH.findIndex((a) => !(G.progress.ach && G.progress.ach[a.id]));
+    let aStart = 0;
+    if (G.ACH.length > aMax) {
+      aStart = Math.min(Math.max(0, (firstMiss < 0 ? G.ACH.length - 1 : firstMiss) - 2),
+                        G.ACH.length - aMax);
+    }
+    const achShown = G.ACH.slice(aStart, aStart + aMax);
+    achShown.forEach((a, i) => {
+      const ly = aTop + i * aRowH;
       const got = !!(G.progress.ach && G.progress.ach[a.id]);
       ctx.font = '10px "Microsoft YaHei", sans-serif';
       ctx.fillStyle = got ? '#8fd35a' : 'rgba(150,142,132,0.55)';
@@ -4586,6 +4607,19 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillStyle = 'rgba(180,172,160,0.65)';
       ctx.fillText(a.desc, x + 110, ly);
     });
+    if (aStart > 0) {
+      ctx.fillStyle = 'rgba(150,142,132,0.55)';
+      ctx.textAlign = 'right';
+      ctx.fillText(`↑ 还有 ${aStart} 条`, x + w - 16, aTop + 2);
+      ctx.textAlign = 'left';
+    }
+    const aRest = G.ACH.length - aStart - achShown.length;
+    if (aRest > 0) {
+      ctx.fillStyle = 'rgba(150,142,132,0.55)';
+      ctx.textAlign = 'right';
+      ctx.fillText(`↓ 还有 ${aRest} 条`, x + w - 16, aTop + (achShown.length - 1) * aRowH + 1);
+      ctx.textAlign = 'left';
+    }
   }
 
   function drawParty(ctx) {
@@ -4604,7 +4638,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('队伍编成', x + 16, y + 22);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('上下选择　空格 加入/移出　Esc 关闭', x + 150, y + 22);
+    ctx.fillText('上下选择　确认 加入/移出　返回 关闭', x + 150, y + 22);
 
     G.ROSTER.forEach((d, i) => {
       const ly = y + 44 + i * 22;
@@ -4774,7 +4808,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('存 档', x + 16, y + 24);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('空格 保存　L 读取　Esc 关闭', x + 190, y + 24);
+    ctx.fillText('空格 保存　L 读取　返回 关闭', x + 190, y + 24);
 
     const slots = G.save.slots();
     slots.forEach((s, i) => {
@@ -4975,7 +5009,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
     ctx.fillStyle = 'rgba(243,236,222,0.35)';
     ctx.font = '10px "Microsoft YaHei", sans-serif';
-    const hint = G.dialogue.active ? '空格 继续　Esc 关闭'
+    const hint = G.dialogue.active ? '空格 继续　返回 关闭'
       : '方向键 移动　空格 交谈　I 背包　G 装备　P 队伍　Q 任务　F 帧率';
     ctx.fillText(hint, 10, G.VIEW_H - 4);
   }
@@ -5011,6 +5045,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     if (started) {
       // 战斗里方向键会压住日志，收起来；点击面板代替
       const tw = document.getElementById('touch');
+      if (tw) tw.classList.toggle('insave', !!showSave);
       if (tw) tw.classList.toggle('inbattle', !!(G.battle && G.battle.active));
       G.updateInput(dt);
       try {
