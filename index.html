@@ -53,18 +53,20 @@
     #touch .subacts {
       display: none;
       position: absolute;
-      right: 14px; bottom: 210px;
-      flex-direction: column; gap: 8px;
+      right: 92px; bottom: 14px;
+      grid-template-columns: repeat(2, 66px);
+      gap: 8px;
       pointer-events: auto;
     }
-    #touch.menuopen .subacts { display: flex; }
+    #touch.menuopen .subacts { display: grid; }
     #touch .subacts button {
       position: static;
-      width: 62px; height: 40px;
+      width: 66px; height: 44px;
       border-radius: 10px;
-      font-size: 14px;
-      background: rgba(20,18,26,0.78);
+      font-size: 13px;
+      background: rgba(20,18,26,0.8);
     }
+    #touch.inbattle .subacts, #touch.indialogue .subacts { display: none !important; }
     #touch .only-save { display: none; }
     #touch.insave .only-save { display: block; }
     #touch.inbattle .pad, #touch.indialogue .pad { display: none; }
@@ -133,6 +135,9 @@
       <button data-key="gear">装备</button>
       <button data-key="partypanel">队伍</button>
       <button data-key="savepanel">存档</button>
+      <button data-key="achpanel">成就</button>
+      <button data-key="minimap">小地图</button>
+      <button data-key="mute">静音</button>
     </div>
   </div>
 
