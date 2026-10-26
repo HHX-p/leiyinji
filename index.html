@@ -4083,6 +4083,17 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
     G.initWorld();
     // 调试/拍摄入口：?scene=ending 直接看终章
+    // 调试/拍摄入口：?panel=inv|gear|party|quest 直接开面板
+    const pm = /[?&]panel=(\w+)/.exec(location.search);
+    if (pm) {
+      setTimeout(() => {
+        if (pm[1] === 'inv') showInv = true;
+        if (pm[1] === 'gear') showGear = true;
+        if (pm[1] === 'party') showParty = true;
+        if (pm[1] === 'quest') showQuest = true;
+      }, 300);
+    }
+
     // 调试/拍摄入口：?scene=battle 直接进战斗
     if (/[?&]scene=battle/.test(location.search)) {
       G.startBattle('slime_water');
@@ -4450,7 +4461,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('装 备', x + 16, y + 24);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('上下选人　左右换装　Esc 关闭', x + 150, y + 24);
+    ctx.fillText('↑↓选人　←→换装　返回 关闭', x + 150, y + 24);
 
     G.PARTY_DEF.forEach((d, i) => {
       const ly = y + 52 + i * 32;
@@ -4652,11 +4663,22 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('任务日志', x + 16, y + 22);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('Esc / Q 关闭', x + w - 76, y + 22);
+    ctx.fillText('Esc / 返回 关闭', x + w - 92, y + 22);
 
+    // 只显示当前进度附近的几条，否则 14 条会顶出面板
     const cur = G.questCurrent();
-    G.STEPS.forEach((s, i) => {
-      const ly = y + 46 + i * 16;
+    const rowH = 16;
+    const top = y + 46;
+    const limit = y + h - 26;
+    const maxRows = Math.max(3, Math.floor((limit - top) / rowH) + 1);
+    const curIdx = cur ? G.STEPS.findIndex((s) => s.id === cur.id) : G.STEPS.length - 1;
+    let start = 0;
+    if (G.STEPS.length > maxRows) {
+      start = Math.min(Math.max(0, curIdx - Math.floor(maxRows / 2)), G.STEPS.length - maxRows);
+    }
+    const shown = G.STEPS.slice(start, start + maxRows);
+    shown.forEach((s, i) => {
+      const ly = top + i * rowH;
       const done = s.done(G.flags);
       const isCur = cur && cur.id === s.id;
       ctx.font = '10px "Microsoft YaHei", sans-serif';
@@ -4665,6 +4687,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillStyle = done ? 'rgba(200,192,180,0.55)' : isCur ? '#f3ecde' : 'rgba(150,142,132,0.6)';
       ctx.fillText(s.text, x + 32, ly);
     });
+    ctx.font = '10px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(150,142,132,0.55)';
+    if (start > 0) ctx.fillText(`↑ 还有 ${start} 条`, x + w - 74, top + 2);
+    const rest = G.STEPS.length - start - shown.length;
+    if (rest > 0) ctx.fillText(`↓ 还有 ${rest} 条`, x + w - 74, top + (shown.length - 1) * rowH);
 
     // 统计
     const stats = [
