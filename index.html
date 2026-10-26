@@ -22,7 +22,7 @@
   }
   /* ---- 触屏按钮：只在触屏设备上显示 ---- */
   #touch { display: none; }
-  @media (pointer: coarse) {
+  @media (pointer: coarse), (max-width: 900px) {
     #touch {
       display: block;
       position: fixed; inset: 0;
@@ -52,6 +52,30 @@
     #touch .r { left: 100px; top: 50px; }
     #touch .acts button { position: static; width: 62px; height: 62px; border-radius: 50%; font-size: 15px; }
   }
+  /* 竖屏提示：这个游戏只有横屏 */
+  #rotate {
+    display: none;
+    position: fixed; inset: 0;
+    background: #0d0c11;
+    color: #c9b98f;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+    font-size: 15px; letter-spacing: .2em;
+    z-index: 20;
+  }
+  #rotate .icon {
+    width: 54px; height: 84px;
+    border: 2px solid rgba(201,185,143,0.7);
+    border-radius: 8px;
+    animation: rot 2s ease-in-out infinite;
+  }
+  @keyframes rot {
+    0%, 40% { transform: rotate(0deg); }
+    60%, 100% { transform: rotate(90deg); }
+  }
+  @media (orientation: portrait) and (max-width: 900px) {
+    #rotate { display: flex; }
+  }
   #loading {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -74,6 +98,11 @@
       <button data-key="cancel">返回</button>
       <button data-key="questlog">任务</button>
     </div>
+  </div>
+
+  <div id="rotate">
+    <div class="icon"></div>
+    <div>请把手机横过来</div>
   </div>
 
   <div id="loading">雪 ノ 下 ニ 参 道</div>
@@ -140,15 +169,18 @@
     window.addEventListener('resize', G.resize);
   };
 
-  // 整数倍放大，保证像素不糊
+  // 优先整数倍放大（像素最干净）；屏幕上连 2 倍都放不下时退而用分数倍，别留大片黑边
   G.resize = function () {
     if (!G.canvas) return;
-    const s = Math.max(1, Math.floor(Math.min(
-      window.innerWidth / G.VIEW_W,
-      window.innerHeight / G.VIEW_H
-    )));
-    G.canvas.style.width = G.VIEW_W * s + 'px';
-    G.canvas.style.height = G.VIEW_H * s + 'px';
+    const fit = Math.min(window.innerWidth / G.VIEW_W, window.innerHeight / G.VIEW_H);
+    let s;
+    if (fit >= 2) {
+      s = Math.floor(fit);
+    } else {
+      s = Math.max(0.5, Math.floor(fit * 100) / 100);
+    }
+    G.canvas.style.width = Math.round(G.VIEW_W * s) + 'px';
+    G.canvas.style.height = Math.round(G.VIEW_H * s) + 'px';
     G.scale = s;
   };
 
