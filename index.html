@@ -52,7 +52,12 @@
     #touch .r { left: 100px; top: 50px; }
     #touch .only-save { display: none; }
     #touch.insave .only-save { display: block; }
-    #touch.inbattle .pad { display: none; }
+    #touch.inbattle .pad, #touch.indialogue .pad { display: none; }
+    #touch.indialogue .acts {
+      flex-direction: row;
+      top: 10px; bottom: auto; right: 10px;
+    }
+    #touch.indialogue .acts button { width: 52px; height: 52px; font-size: 13px; opacity: 0.88; }
     #touch.inbattle .acts {
       flex-direction: row;
       top: 10px; bottom: auto; right: 10px;
@@ -4086,6 +4091,19 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
     G.initWorld();
     // 调试/拍摄入口：?scene=ending 直接看终章
+    // 调试/拍摄入口：?scene=dialogue 直接开一段对话
+    if (/[?&]scene=dialogue/.test(location.search)) {
+      setTimeout(() => {
+        const npc = { name: '八重神子', portrait: 'miko',
+          lines: [
+            '「你来晚了。」',
+            '「风里有铁锈味——山那边又不太平了。」',
+            '「去参道尽头看看。别一个人逞强，带上她们。」',
+          ] };
+        G.startDialogue(npc);
+      }, 300);
+    }
+
     // 调试/拍摄入口：?panel=inv|gear|party|quest 直接开面板
     const pm = /[?&]panel=(\w+)/.exec(location.search);
     if (pm) {
@@ -5047,6 +5065,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const tw = document.getElementById('touch');
       if (tw) tw.classList.toggle('insave', !!showSave);
       if (tw) tw.classList.toggle('inbattle', !!(G.battle && G.battle.active));
+      if (tw) tw.classList.toggle('indialogue', !!(G.dialogue && G.dialogue.active));
       G.updateInput(dt);
       try {
         update(dt);
