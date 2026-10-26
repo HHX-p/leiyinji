@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>雷樱纪 · 影向山</title>
 <style>
   html, body {
@@ -951,6 +952,28 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 (function () {
   'use strict';
   const G = (window.G = window.G || {});
+
+  // 有些手机浏览器禁用 localStorage，直接访问会抛异常，
+  // 一抛就把整个启动流程打断（表现为永远卡在加载页）。这里做内存兜底。
+  const memStore = Object.create(null);
+  let LS = null;
+  try { LS = window.localStorage; } catch (e) { LS = null; }
+  if (!LS) { try { LS = localStorage; } catch (e) { LS = null; } }
+
+  const store = {
+    get(k) {
+      if (LS) { try { return LS.getItem(k); } catch (e) { /* 落回内存 */ } }
+      return memStore[k] === undefined ? null : memStore[k];
+    },
+    set(k, v) {
+      if (LS) { try { LS.setItem(k, v); return; } catch (e) { /* 落回内存 */ } }
+      memStore[k] = v;
+    },
+    remove(k) {
+      if (LS) { try { LS.removeItem(k); } catch (e) { /* 落回内存 */ } }
+      delete memStore[k];
+    },
+  };
   const PREFIX = 'leiyinji.save.';
   const SLOTS = 3;
 
@@ -971,7 +994,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
   G.save = {
     exists(i) {
-      try { return !!localStorage.getItem(key(i === undefined ? G.currentSlot : i)); }
+      try { return !!store.get(key(i === undefined ? G.currentSlot : i)); }
       catch (e) { return false; }
     },
 
@@ -979,7 +1002,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     load(i) {
       const idx = i === undefined ? G.currentSlot : i;
       try {
-        const s = localStorage.getItem(key(idx));
+        const s = store.get(key(idx));
         if (!s) return false;
         const d = JSON.parse(s);
         G.progress = {
@@ -1009,14 +1032,14 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const idx = i === undefined ? G.currentSlot : i;
       try {
         G.progress.stamp = Date.now();
-        localStorage.setItem(key(idx), JSON.stringify(G.progress));
+        store.set(key(idx), JSON.stringify(G.progress));
         G.currentSlot = idx;
       } catch (e) { /* 隐私模式或超限，静默失败 */ }
     },
 
     reset(i) {
       const idx = i === undefined ? G.currentSlot : i;
-      try { localStorage.removeItem(key(idx)); } catch (e) {}
+      try { store.remove(key(idx)); } catch (e) {}
     },
 
     /** 三个槽位的摘要，用于存档面板 */
@@ -1025,7 +1048,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       for (let i = 0; i < SLOTS; i++) {
         let d = null;
         try {
-          const s = localStorage.getItem(key(i));
+          const s = store.get(key(i));
           if (s) d = JSON.parse(s);
         } catch (e) { d = null; }
         out.push({
@@ -4133,7 +4156,12 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     });
     await G.loadAll();
 
-    G.initWorld();
+    // 任何一步失败都不能让加载页卡死
+    try {
+      G.initWorld();
+    } catch (e) {
+      console.error('[雷樱纪] 初始化世界失败', e);
+    }
     // 调试/拍摄入口：?scene=ending 直接看终章
     // 调试/拍摄入口：?scene=dialogue 直接开一段对话
     if (/[?&]scene=dialogue/.test(location.search)) {
@@ -4177,11 +4205,21 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       }
     }
 
-    G.save.load();
-    applyProgress();
-
-    const mapKey = G.progress.mapKey && G.MAPS[G.progress.mapKey] ? G.progress.mapKey : 'path';
-    G.loadMap(mapKey, G.progress.player || null);
+    // 后面这几步任何一步抛错，都必须把加载页收掉，否则玩家永远卡在黑屏
+    try {
+      G.save.load();
+      applyProgress();
+      const mapKey = G.progress.mapKey && G.MAPS[G.progress.mapKey] ? G.progress.mapKey : 'path';
+      G.loadMap(mapKey, G.progress.player || null);
+    } catch (e) {
+      console.error('[雷樱纪] 启动失败，回退到初始状态', e);
+      try {
+        G.progress = G.progress || {};
+        G.loadMap('path', null);
+      } catch (e2) {
+        console.error('[雷樱纪] 连回退都失败', e2);
+      }
+    }
 
     document.getElementById('loading').style.display = 'none';
     canvas.style.visibility = 'visible';
