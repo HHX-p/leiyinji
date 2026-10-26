@@ -200,6 +200,13 @@
   G.ctx = null;
 
   G.initCanvas = function (canvas) {
+    // 判断是不是触屏设备：粗指针，或者窗口窄得像手机
+    try {
+      G.isTouch = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+        window.innerWidth <= 900;
+    } catch (e) {
+      G.isTouch = window.innerWidth <= 900;
+    }
     G.canvas = canvas;
     canvas.width = G.VIEW_W;
     canvas.height = G.VIEW_H;
@@ -5064,9 +5071,26 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
     ctx.fillStyle = 'rgba(243,236,222,0.35)';
     ctx.font = '10px "Microsoft YaHei", sans-serif';
-    const hint = G.dialogue.active ? '空格 继续　返回 关闭'
-      : '方向键 移动　空格 交谈　I 背包　G 装备　P 队伍　Q 任务　F 帧率';
-    ctx.fillText(hint, 10, G.VIEW_H - 4);
+    // 手机上没有键盘，提示得说屏幕上的按钮
+    const isTouch = G.isTouch;
+    let hint;
+    if (G.dialogue.active) {
+      hint = isTouch ? '点「确认」继续　点「返回」关闭' : '空格 继续　返回 关闭';
+    } else if (G.battle && G.battle.active) {
+      hint = isTouch ? '点指令　点队友换人' : '方向键 选　空格 确认';
+    } else {
+      hint = isTouch
+        ? '点方向键走　点「确认」交谈　「菜单」里有背包队伍存档'
+        : '方向键 移动　空格 交谈　I 背包　G 装备　P 队伍　Q 任务　F 帧率';
+    }
+    if (isTouch) {
+      // 手机版底部左右都是按钮，提示放中间才不被压住
+      ctx.textAlign = 'center';
+      ctx.fillText(hint, G.VIEW_W / 2, G.VIEW_H - 8);
+      ctx.textAlign = 'left';
+    } else {
+      ctx.fillText(hint, 10, G.VIEW_H - 4);
+    }
   }
 
   let errShown = '';
