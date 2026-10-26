@@ -3339,18 +3339,6 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     if (!b || !b.active) return false;
     if (gy < 236 || gy > 266) return false;
 
-    // 队伍格：换人
-    for (let i = 0; i < b.party.length; i++) {
-      const x = 330 + i * 34;
-      if (gx >= x && gx <= x + 30) {
-        if (i !== b.idx && b.party[i].hp > 0) {
-          b.idx = i;
-          if (G.sfx) G.sfx.play('confirm');
-        }
-        return true;
-      }
-    }
-
     if (b.phase !== 'command') return false;
 
     // 技能子菜单：三格，每格 144 宽
@@ -3380,6 +3368,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         }
       }
       return false;
+    }
+
+    // 队伍格：换人（放在子菜单之后，否则会和第三个技能格重叠）
+    for (let i = 0; i < b.party.length; i++) {
+      const x = 330 + i * 34;
+      if (gx >= x && gx <= x + 30) {
+        if (i !== b.idx && b.party[i].hp > 0) {
+          b.idx = i;
+          if (G.sfx) G.sfx.play('confirm');
+        }
+        return true;
+      }
     }
 
     // 指令行
