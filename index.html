@@ -683,15 +683,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   /** 右上角的时辰显示 */
   G.drawClock = function (ctx) {
     if (!G.env.enabled) return;
-    const txt = `${G.envName()}　${G.weatherName()}`;
-    ctx.font = '10px "Microsoft YaHei", sans-serif';
-    const w = ctx.measureText(txt).width + 16;
+    const txt = `${G.envName()} ${G.weatherName()}`;
+    ctx.font = '12px "Microsoft YaHei", sans-serif';
+    const w = ctx.measureText(txt).width + 18;
     const x = G.VIEW_W - w - 8;
-    ctx.fillStyle = 'rgba(18,16,22,0.7)';
-    G.roundRect(ctx, x, 8, w, 18, 3);
+    ctx.fillStyle = 'rgba(18,16,22,0.78)';
+    G.roundRect(ctx, x, 6, w, 22, 4);
     ctx.fill();
     ctx.fillStyle = '#f0d79a';
-    ctx.fillText(txt, x + 8, 20);
+    ctx.fillText(txt, x + 9, 21);
   };
 })();
 
