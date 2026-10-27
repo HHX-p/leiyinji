@@ -5238,6 +5238,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   // 供离线自动演示 / 回归使用
   G.debugUpdate = update;
   G.debugDraw = draw;
+  // 给自动化测试看面板开关状态（面板都是闭包变量，外面读不到）
+  G.debugUI = function () {
+    return {
+      inv: showInv, gear: showGear, party: showParty, quest: showQuest,
+      save: showSave, shop: showShop, ach: showAch,
+      touch: !!G.isTouch, battle: !!(G.battle && G.battle.active),
+      dialogue: !!(G.dialogue && G.dialogue.active),
+    };
+  };
 
   G.onBattleFlee = function () {
     G.player.y += 40;
