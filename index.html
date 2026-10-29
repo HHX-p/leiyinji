@@ -4786,6 +4786,48 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   }
 
   // ---------- 绘制 ----------
+  // ---------- 画面调色 ----------
+  // 每个地区一个很淡的色调；再叠一层暗角把视线收到中间。
+  // 缓存成 canvas，避免每帧重建渐变（480x270 上逐帧建渐变会掉帧）。
+  const GRADE_TINT = {
+    path:   'rgba(120,150,110,0.03)',
+    shrine: 'rgba(150,120,180,0.05)',
+    town:   'rgba(190,150,110,0.04)',
+    depths: 'rgba(70,90,160,0.10)',
+  };
+  let vignetteCanvas = null;
+  let gradeKey = '';
+
+  function ensureVignette() {
+    if (vignetteCanvas) return vignetteCanvas;
+    const c = document.createElement('canvas');
+    c.width = G.VIEW_W;
+    c.height = G.VIEW_H;
+    const g2 = c.getContext('2d');
+    const grad = g2.createRadialGradient(
+      G.VIEW_W / 2, G.VIEW_H / 2, G.VIEW_H * 0.35,
+      G.VIEW_W / 2, G.VIEW_H / 2, G.VIEW_W * 0.72
+    );
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(6,5,10,0.26)');
+    g2.fillStyle = grad;
+    g2.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
+    vignetteCanvas = c;
+    return c;
+  }
+
+  function drawGrade(ctx) {
+    const key = G.currentMap || 'path';
+    if (key !== gradeKey) gradeKey = key;
+    const tint = GRADE_TINT[key];
+    if (tint) {
+      ctx.fillStyle = tint;
+      ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
+    }
+    const v = ensureVignette();
+    if (v) ctx.drawImage(v, 0, 0);
+  }
+
   function drawHUD(ctx) {
     const q = G.questCurrent();
     const post = G.postGame && G.postGame();
@@ -5434,6 +5476,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.globalAlpha = 1;
     }
 
+    drawGrade(ctx);   // 区域色调 + 暗角（在 HUD 之下，不糊界面）
     G.drawEnv(ctx);
     drawHUD(ctx);
     G.drawClock(ctx);
