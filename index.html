@@ -2959,6 +2959,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   };
 
   // ---------- 角色 ----------
+  // 角色特征：一个被动，写进伤害链路
+  G.TRAITS = {
+    ei:      { name: '雷罚之眼', desc: '雷元素伤害 +15%', elem: '雷', elemMul: 0.15 },
+    miko:    { name: '杀生樱',   desc: '每次行动回能 +6',   energy: 6 },
+    ayaka:   { name: '霜见',     desc: '攻击有 20% 概率冻结附着', freeze: 0.20 },
+    kazuha:  { name: '叶隐',     desc: '受击时 15% 概率完全闪避', dodge: 0.15 },
+    sara:    { name: '天狗',     desc: '暴击率 +12%',        crit: 0.12 },
+    lumine:  { name: '旅人',     desc: '全部伤害 +6%',       allMul: 0.06 },
+  };
+
+  G.traitOf = function (charId) { return G.TRAITS[charId] || null; };
+
   // 每套衣服给一个配色，战斗里名字牌和立绘边框会换上这个颜色
   G.OUTFITS = {
     ei: [
@@ -3406,12 +3418,27 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const mit = this.mitigate(defNow, skill.ignoreDef);
       const same = this.sameElementMul(attElem, enemy.element);
       const variance = 0.95 + rnd() * 0.1;
+
+      // 角色特征：乘区在这里叠加
+      const tr = (G.traitOf && G.traitOf(attacker.id)) || {};
+      let traitMul = 1;
+      if (tr.allMul) traitMul *= 1 + tr.allMul;
+      if (tr.elemMul && attElem === tr.elem) traitMul *= 1 + tr.elemMul;
+      let critMul = 1;
+      if (rnd() < (tr.crit || 0)) critMul = 1.5; // 天狗的暴击
+
       const dmg = Math.max(1, Math.round(
-        skill.power * attacker.atk * mit * same * reactMul * buffMul * variance
+        skill.power * attacker.atk * mit * same * reactMul * buffMul * variance * traitMul * critMul
       ));
       enemy.hp = Math.max(0, enemy.hp - dmg);
 
       if (react) statusText = this.applyStatus(react.effect, enemy, attacker);
+      // 神里绫华的霜见：有概率直接把敌人冻住
+      if (tr.freeze && rnd() < tr.freeze && enemy.hp > 0) {
+        enemy.status = enemy.status || {};
+        enemy.status.freeze = Math.max(1, enemy.status.freeze || 0);
+        statusText = (statusText ? statusText + '；' : '') + '冻结！';
+      }
 
       return { dmg, react, statusText };
     },
@@ -3423,6 +3450,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const same = this.sameElementMul(move.element || enemy.element, target.element);
       const variance = 0.95 + rnd() * 0.1;
       const atkDown = enemy.atkDown > 0 ? 0.7 : 1;
+      // 枫原万叶的叶隐：有概率完全躲开
+      const trD = (G.traitOf && G.traitOf(target.id)) || {};
+      if (trD.dodge && rnd() < trD.dodge) {
+        return { dmg: 0, dodged: true, absorbed: 0, shieldLeft: target.shield || 0 };
+      }
       let dmg = Math.max(1, Math.round(move.power * enemy.atk * atkDown * mit * same * variance));
 
       let absorbed = 0;
@@ -3775,6 +3807,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     if (b.bonus && b.bonus.energy && skill.energy) {
       actor.energy = Math.min(actor.maxEnergy,
         actor.energy + Math.round(skill.energy * b.bonus.energy));
+    }
+    // 行动后回能（八重神子的「杀生樱」特征）
+    const trE = (G.traitOf && G.traitOf(actor.id)) || {};
+    if (trE.energy) {
+      actor.energy = Math.min(actor.maxEnergy, actor.energy + trE.energy);
     }
     G.BL.tickCooldowns(actor);
 
@@ -5074,6 +5111,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     });
     ctx.fillStyle = 'rgba(200,192,180,0.55)';
     ctx.fillText(`出战 ${G.formation.length} / ${G.MAX_PARTY}`, x + 214, y + h - 14);
+
+    // 选中角色的特征（放在穿着那行上面）
+    const traitWho = G.ROSTER[partyIdx];
+    const tr = traitWho && G.traitOf ? G.traitOf(traitWho.id) : null;
+    if (tr) {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(240,215,154,0.9)';
+      ctx.fillText('特征 · ' + tr.name + '：' + tr.desc, x + 16, y + h - 28);
+    }
 
     // 选中角色当前穿的（放底部，避开右侧共鸣栏）
     const curWho = G.ROSTER[partyIdx];
