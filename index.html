@@ -721,16 +721,35 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   'use strict';
   const G = (window.G = window.G || {});
 
+  // 五种武器类型；角色只能用自己那一种
+  G.WEAPON_TYPES = {
+    sword:    { name: '单手剑', color: '#c8d0e0' },
+    claymore: { name: '双手剑', color: '#d09a72' },
+    polearm:  { name: '长柄',   color: '#b6d0a8' },
+    bow:      { name: '弓',     color: '#d8b878' },
+    catalyst: { name: '法器',   color: '#b18cff' },
+  };
+
   G.GEAR_DEF = {
-    none:      { name: '徒手',   atk: 0,  hp: 0,  color: '#8a8078', desc: '什么都没有' },
-    tachi:     { name: '太刀',   atk: 18, hp: 0,  color: '#c8d0e0', desc: '影向山锻刀匠的手艺' },
-    sakurafan: { name: '樱扇',   atk: 10, hp: 60, color: '#f0a8c8', desc: '宫司给的，扇骨是白的' },
-    yumi:      { name: '长弓',   atk: 14, hp: 20, color: '#d8b878', desc: '天领奉行的制式，弦是新的' },
-    talisman:  { name: '御雷符', atk: 22, hp: 0,  color: '#b18cff', desc: '画着三巴纹，摸上去有静电' },
-    hakuen:    { name: '白辰之环', atk: 8, hp: 120, color: '#e8f0ff', desc: '断浪的残片，凉得像雪' },
-    kageuchi:  { name: '影打',   atk: 30, hp: 0,  color: '#ff9a6a', desc: '没开刃的刀胚，比开刃的更重' },
-    kagura:    { name: '神乐之真意', atk: 26, hp: 40, color: '#ffd76a', desc: '铃铛上有三种颜色的绳' },
-    dream:     { name: '梦想一心', atk: 36, hp: 50, color: '#c9a2ff', desc: '终章之后留下的东西' },
+    none:      { name: '徒手',   type: null,     atk: 0,  hp: 0,  color: '#8a8078', desc: '什么都没有' },
+    // 单手剑
+    tachi:     { name: '太刀',   type: 'sword',    atk: 18, hp: 0,   color: '#c8d0e0', desc: '影向山锻刀匠的手艺' },
+    kageuchi:  { name: '影打',   type: 'sword',    atk: 30, hp: 0,   color: '#ff9a6a', desc: '没开刃的刀胚，比开刃的更重' },
+    dream:     { name: '梦想一心', type: 'sword',  atk: 36, hp: 50,  color: '#c9a2ff', desc: '终章之后留下的东西' },
+    // 双手剑
+    ame:       { name: '雨裁',   type: 'claymore', atk: 24, hp: 40,  color: '#7fb0c8', desc: '刀身有雨痕，越淋越利' },
+    oni:       { name: '鬼之大剑', type: 'claymore', atk: 32, hp: -10, color: '#c05a4a', desc: '挥一下要喘两口，但砍得开甲' },
+    // 长柄
+    naginata:  { name: '薙刀',   type: 'polearm',  atk: 20, hp: 20,  color: '#b6d0a8', desc: '神社仪仗用的长柄' },
+    engul:     { name: '薙草之稻光', type: 'polearm', atk: 34, hp: 30, color: '#e0c890', desc: '雷光缠在刃上，握着会麻' },
+    // 弓
+    yumi:      { name: '长弓',   type: 'bow',      atk: 14, hp: 20,  color: '#d8b878', desc: '天领奉行的制式，弦是新的' },
+    hamayumi:  { name: '破魔之弓', type: 'bow',    atk: 26, hp: 0,   color: '#e8d8b0', desc: '射出去的箭不走回头路' },
+    // 法器
+    sakurafan: { name: '樱扇',   type: 'catalyst', atk: 10, hp: 60,  color: '#f0a8c8', desc: '宫司给的，扇骨是白的' },
+    talisman:  { name: '御雷符', type: 'catalyst', atk: 22, hp: 0,   color: '#b18cff', desc: '画着三巴纹，摸上去有静电' },
+    hakuen:    { name: '白辰之环', type: 'catalyst', atk: 8, hp: 120, color: '#e8f0ff', desc: '断浪的残片，凉得像雪' },
+    kagura:    { name: '神乐之真意', type: 'catalyst', atk: 26, hp: 40, color: '#ffd76a', desc: '铃铛上有三种颜色的绳' },
   };
 
   G.gear = {
@@ -781,14 +800,41 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     };
   };
 
+  /** 角色能用什么武器 */
+  G.weaponOfChar = function (charId) {
+    const c = (G.ROSTER || []).find((r) => r.id === charId);
+    return c ? c.weapon : null;
+  };
+
+  /** 这把武器这个人能不能用 */
+  G.canEquip = function (charId, id) {
+    if (id === 'none') return true;
+    const d = G.GEAR_DEF[id];
+    if (!d) return false;
+    const want = G.weaponOfChar(charId);
+    if (!want) return false;
+    // 有的角色能用不止一种（旅行者）
+    return Array.isArray(want) ? want.indexOf(d.type) >= 0 : d.type === want;
+  };
+
+  /** 这个角色可用武器的中文名，给界面显示 */
+  G.weaponLabelOfChar = function (charId) {
+    const want = G.weaponOfChar(charId);
+    if (!want) return '未知';
+    const arr = Array.isArray(want) ? want : [want];
+    return arr.map((t) => (G.WEAPON_TYPES[t] || {}).name || t).join(' / ');
+  };
+
   G.gearEquip = function (charId, id) {
     if (id !== 'none' && G.gear.owned.indexOf(id) < 0) return false;
+    if (!G.canEquip(charId, id)) return false;
     G.gear.equip[charId] = id;
     return true;
   };
 
   G.gearCycle = function (charId, dir) {
-    const list = ['none'].concat(G.gear.owned);
+    // 只在这个角色能用的武器里轮换
+    const list = ['none'].concat(G.gear.owned.filter((id) => G.canEquip(charId, id)));
     const curId = G.gear.equip[charId] || 'none';
     let i = list.indexOf(curId);
     if (i < 0) i = 0;
@@ -2911,7 +2957,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   // ---------- 角色 ----------
   G.ROSTER = [
     {
-      id: 'ei', name: '雷电影', element: '雷', sprite: 0, portrait: 'ei',
+      id: 'ei', name: '雷电影', element: '雷', sprite: 0, portrait: 'ei', weapon: 'polearm',
       maxHp: 720, atk: 104, def: 62, spd: 92, maxEnergy: 90,
       skills: [
         { id: 'na', name: '源流', kind: 'na', power: 1.0, energy: 16, desc: '长枪连刺，积攒元素能量' },
@@ -2920,7 +2966,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ],
     },
     {
-      id: 'miko', name: '八重神子', element: '雷', sprite: 1, portrait: 'miko',
+      id: 'miko', name: '八重神子', element: '雷', sprite: 1, portrait: 'miko', weapon: 'catalyst',
       maxHp: 640, atk: 112, def: 48, spd: 104, maxEnergy: 80,
       skills: [
         { id: 'na', name: '狐灵食罪式', kind: 'na', power: 0.95, energy: 16, desc: '驱役狐灵三段攻击' },
@@ -2929,7 +2975,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ],
     },
     {
-      id: 'ayaka', name: '神里绫华', element: '冰', sprite: 2, portrait: 'ayaka',
+      id: 'ayaka', name: '神里绫华', element: '冰', sprite: 2, portrait: 'ayaka', weapon: 'sword',
       maxHp: 680, atk: 96, def: 58, spd: 98, maxEnergy: 80,
       skills: [
         { id: 'na', name: '神里流·倾', kind: 'na', power: 1.0, energy: 16, desc: '太刀迅捷三连' },
@@ -2938,7 +2984,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ],
     },
     {
-      id: 'kazuha', name: '枫原万叶', element: '风', sprite: 2, portrait: 'kazuha',
+      id: 'kazuha', name: '枫原万叶', element: '风', sprite: 2, portrait: 'kazuha', weapon: 'sword',
       maxHp: 600, atk: 92, def: 50, spd: 116, maxEnergy: 60,
       skills: [
         { id: 'na', name: '我流·斩', kind: 'na', power: 0.9, energy: 16, desc: '拔刀一闪' },
@@ -2947,7 +2993,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ],
     },
     {
-      id: 'sara', name: '九条裟罗', element: '雷', sprite: 2, portrait: 'sara',
+      id: 'sara', name: '九条裟罗', element: '雷', sprite: 2, portrait: 'sara', weapon: 'bow',
       maxHp: 660, atk: 100, def: 66, spd: 94, maxEnergy: 80,
       skills: [
         { id: 'na', name: '咒禁', kind: 'na', power: 0.95, energy: 16, desc: '鸦羽化箭' },
@@ -2956,7 +3002,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ],
     },
     {
-      id: 'lumine', name: '旅行者', element: '风', sprite: 2, portrait: 'lumine',
+      id: 'lumine', name: '旅行者', element: '风', sprite: 2, portrait: 'lumine', weapon: ['sword', 'claymore'],
       maxHp: 620, atk: 88, def: 54, spd: 108, maxEnergy: 60,
       skills: [
         { id: 'na', name: '旅行剑', kind: 'na', power: 0.9, energy: 16, desc: '随手一记' },
@@ -3135,9 +3181,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     { kind: 'item', id: 'tofu', price: 90 },
     { kind: 'item', id: 'salve', price: 220 },
     { kind: 'item', id: 'charm', price: 340 },
-    { kind: 'gear', id: 'yumi', price: 700 },
-    { kind: 'gear', id: 'hakuen', price: 900 },
-    { kind: 'gear', id: 'kagura', price: 1500 },
+    // 武器按类型铺开，保证六个人都有得换
+    { kind: 'gear', id: 'ame', price: 640 },       // 双手剑
+    { kind: 'gear', id: 'yumi', price: 700 },      // 弓
+    { kind: 'gear', id: 'naginata', price: 780 },  // 长柄
+    { kind: 'gear', id: 'hamayumi', price: 880 },  // 弓
+    { kind: 'gear', id: 'hakuen', price: 900 },    // 法器
+    { kind: 'gear', id: 'oni', price: 1180 },      // 双手剑
+    { kind: 'gear', id: 'engul', price: 1320 },    // 长柄
+    { kind: 'gear', id: 'kagura', price: 1500 },   // 法器
   ];
 
   /** 买；返回 ok / poor / owned */
@@ -4719,7 +4771,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('↑↓选人　←→换装　返回 关闭', x + 150, y + 24);
 
     G.PARTY_DEF.forEach((d, i) => {
-      const ly = y + 52 + i * 32;
+      const ly = y + 48 + i * 30;
       const sel = i === gearIdx;
       if (sel) {
         ctx.fillStyle = 'rgba(122,59,52,0.5)';
@@ -4729,6 +4781,12 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.font = '10px "Microsoft YaHei", sans-serif';
       ctx.fillStyle = '#f3ecde';
       ctx.fillText(d.name, x + 20, ly);
+      // 这个角色能用什么武器
+      const wl = G.weaponLabelOfChar ? G.weaponLabelOfChar(d.id) : '';
+      if (wl) {
+        ctx.fillStyle = 'rgba(150,190,230,0.85)';
+        ctx.fillText(wl, x + 20, ly + 11);
+      }
       const g = G.gearOf(d.id);
       ctx.fillStyle = g.color || '#fff';
       ctx.fillRect(x + 100, ly - 8, 6, 6);
@@ -4759,7 +4817,13 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText(`摩拉 ${G.progress.mora || 0}`, x + w - 16, y + h - 26);
     ctx.textAlign = 'left';
 
-    const owned = G.gear.owned.length ? G.gear.owned.map((id) => G.GEAR_DEF[id].name).join('　') : '无';
+    const owned = G.gear.owned.length
+      ? G.gear.owned.map((id) => {
+        const d = G.GEAR_DEF[id];
+        const tn = d.type ? (G.WEAPON_TYPES[d.type] || {}).name : '';
+        return tn ? `${d.name}(${tn})` : d.name;
+      }).join('　')
+      : '无';
     ctx.fillStyle = 'rgba(200,192,180,0.65)';
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillText('已拥有：' + owned, x + 16, y + h - 12);
