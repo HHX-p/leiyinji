@@ -1852,6 +1852,19 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   G.drawObject = function (ctx, o, cam) {
     const img = G.assets.objects;
     if (!img) return;
+    // 先在地上铺一层椭圆软影：物件不再像贴在画面上
+    const sx = Math.round(o.x - cam.x);
+    const sy = Math.round(o.y - cam.y);
+    const wide = o.t === 0 || o.t === 1 ? 15 : 12;   // 树宽一点
+    const tall = 5;
+    ctx.fillStyle = 'rgba(10,14,18,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 2, wide, tall, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(10,14,18,0.14)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 2, wide - 4, tall - 2, 0, 0, Math.PI * 2);
+    ctx.fill();
     const dx = Math.round(o.x - 16 - cam.x);
     const dy = Math.round(o.y - 48 - cam.y);
     const flip = o.t <= 2 && (o.x >> 4) % 2 === 1;
@@ -5359,10 +5372,20 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     actors.push({ y: G.player.y, kind: 'player' });
     actors.sort((a, b) => a.y - b.y);
 
+    // 脚下阴影：敌人本来就有，玩家和 NPC 也补上，人才像站在地上
+    function footShadow(wx, wy, w, h) {
+      ctx.fillStyle = 'rgba(8,10,14,0.38)';
+      ctx.beginPath();
+      ctx.ellipse(Math.round(wx - G.camera.x), Math.round(wy - G.camera.y + 1), w, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     for (const a of actors) {
       if (a.kind === 'player') {
+        footShadow(G.player.x, G.player.y, 10, 3.5);
         G.drawPlayer(ctx, G.camera);
       } else if (a.kind === 'npc') {
+        if (a.ref.kind !== 'cat') footShadow(a.ref.x, a.ref.y, 7, 3);
         const n = a.ref;
         if (n.kind === 'cat') G.drawCat(ctx, n.x, n.y, G.camera, clock);
         else G.drawChar(ctx, n.sprite, n.x, n.y, n.dir || 0, 0, G.camera);
