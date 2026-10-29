@@ -268,6 +268,7 @@
       KeyQ: 'questlog',
       KeyN: 'minimap',
       KeyT: 'achpanel',
+      KeyC: 'outfit',
       KeyF: 'perf',
       KeyL: 'loadslot',
       KeyM: 'mute',
@@ -1136,7 +1137,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
   function emptyProgress() {
     return {
-      party: {}, encounters: {}, player: null, battles: 0,
+      party: {}, encounters: {}, player: null, battles: 0, outfit: {},
       flags: {}, inv: {}, pickups: {}, mapKey: 'path',
       gear: null, mora: 0, stamp: 0,
     };
@@ -1161,6 +1162,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         const d = JSON.parse(s);
         G.progress = {
           party: d.party || {},
+    outfit: d.outfit || {},
+    __restoreOutfit: true,
           encounters: d.encounters || {},
           player: d.player || null,
           battles: d.battles || 0,
@@ -1186,6 +1189,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const idx = i === undefined ? G.currentSlot : i;
       try {
         G.progress.stamp = Date.now();
+        if (G.outfit) G.progress.outfit = G.outfit;
         store.set(key(idx), JSON.stringify(G.progress));
         G.currentSlot = idx;
       } catch (e) { /* 隐私模式或超限，静默失败 */ }
@@ -2955,6 +2959,58 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   };
 
   // ---------- 角色 ----------
+  // 每套衣服给一个配色，战斗里名字牌和立绘边框会换上这个颜色
+  G.OUTFITS = {
+    ei: [
+      { id: 'casual', name: '常服',     color: '#c9a2ff', desc: '深紫，袖口磨白了' },
+      { id: 'shrine', name: '神主装束', color: '#f0d79a', desc: '大社的礼装，压箱底那件' },
+      { id: 'battle', name: '战装',     color: '#9fb0e8', desc: '肩甲上有三道划痕' },
+    ],
+    miko: [
+      { id: 'casual', name: '常服',     color: '#f0a8c8', desc: '狐耳压在头发里' },
+      { id: 'shrine', name: '宫司装束', color: '#ffd76a', desc: '正经起来的宫司大人' },
+      { id: 'night',  name: '夜行',     color: '#a88ce0', desc: '夜里出门办事穿的' },
+    ],
+    ayaka: [
+      { id: 'casual', name: '常服',     color: '#bfe3f0', desc: '白椿纹的和服' },
+      { id: 'formal', name: '礼装',     color: '#e8d8b0', desc: '社奉行的正式场合' },
+      { id: 'battle', name: '战装',     color: '#8fd3e8', desc: '便于挥刀的短打' },
+    ],
+    kazuha: [
+      { id: 'casual', name: '常服',     color: '#d8c8a0', desc: '红叶色的外褂' },
+      { id: 'wander', name: '旅装',     color: '#a8c8a0', desc: '走了很多地方的旧衣' },
+      { id: 'battle', name: '战装',     color: '#e0b070', desc: '袖口收紧的那件' },
+    ],
+    sara: [
+      { id: 'casual', name: '常服',     color: '#b0b8d0', desc: '天狗的黑羽' },
+      { id: 'formal', name: '礼装',     color: '#d8c078', desc: '奉行的军装' },
+      { id: 'battle', name: '战装',     color: '#a0b8e0', desc: '弓弦换了新的' },
+    ],
+    lumine: [
+      { id: 'casual', name: '常服',     color: '#e8e0c8', desc: '旅行者那身' },
+      { id: 'sleep',  name: '睡袍',     color: '#c8b8e0', desc: '不知道从哪掏出来的' },
+      { id: 'battle', name: '战装',     color: '#f0e0a0', desc: '披风换成了短的' },
+    ],
+  };
+
+  // 当前穿的是第几套（存进存档）
+  G.outfit = {};
+
+  G.outfitOf = function (charId) {
+    const list = G.OUTFITS[charId];
+    if (!list || !list.length) return null;
+    const i = G.outfit[charId] || 0;
+    return list[Math.min(i, list.length - 1)];
+  };
+
+  G.outfitCycle = function (charId, dir) {
+    const list = G.OUTFITS[charId];
+    if (!list || !list.length) return null;
+    const cur = G.outfit[charId] || 0;
+    G.outfit[charId] = (cur + (dir || 1) + list.length) % list.length;
+    return G.outfitOf(charId);
+  };
+
   G.ROSTER = [
     {
       id: 'ei', name: '雷电影', element: '雷', sprite: 0, portrait: 'ei', weapon: 'polearm',
@@ -4112,14 +4168,17 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillStyle = 'rgba(16,14,20,0.95)';
       ctx.fillRect(272, 172, 34, 42);
       ctx.drawImage(portrait, 0, 0, portrait.width, portrait.height, 272, 172, 34, 42);
-      ctx.strokeStyle = 'rgba(243,236,222,0.55)';
+      const ofr = (G.outfitOf && G.outfitOf(actor.id)) || null;
+      ctx.strokeStyle = ofr ? ofr.color : 'rgba(243,236,222,0.55)';
       ctx.lineWidth = 1;
       ctx.strokeRect(272.5, 172.5, 33, 41);
     }
     const tx = portrait ? 312 : 276;
     const tw = portrait ? 150 : 186;
     ctx.font = 'bold 10px "Microsoft YaHei", sans-serif';
-    ctx.fillStyle = BORDER;
+    // 名字用当前服装的配色
+    const of = (G.outfitOf && G.outfitOf(actor.id)) || null;
+    ctx.fillStyle = of ? of.color : BORDER;
     ctx.fillText(actor.name, tx, 182);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = GOLD;
@@ -4334,7 +4393,16 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   }
 
   // ---------- 启动 ----------
+  function showBootError(e) {
+    const msg = String((e && e.message) || e);
+    console.error('[雷樱纪] 启动异常:', e);
+    const st = document.getElementById('ld-status');
+    if (st) st.textContent = '启动失败：' + msg;
+    document.title = 'ERR: ' + msg;
+  }
+
   async function boot() {
+   try {
     const canvas = document.getElementById('game');
     G.initCanvas(canvas);
     G.bindInput();
@@ -4409,6 +4477,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     // 后面这几步任何一步抛错，都必须把加载页收掉，否则玩家永远卡在黑屏
     try {
       G.save.load();
+      if (G.progress.outfit && G.outfit !== undefined) G.outfit = G.progress.outfit;
       applyProgress();
       const mapKey = G.progress.mapKey && G.MAPS[G.progress.mapKey] ? G.progress.mapKey : 'path';
       G.loadMap(mapKey, G.progress.player || null);
@@ -4428,6 +4497,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     introT = 2.4;
     last = performance.now();
     requestAnimationFrame(loop);
+   } catch (e) {
+     showBootError(e);
+   }
   }
 
   // ---------- 更新 ----------
@@ -4487,6 +4559,14 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         if (r === 'full') { G.sfx.play('cancel'); G.toast = { text: '队伍已满（4 人）', t: 1.2 }; }
         else if (r === 'last') { G.sfx.play('cancel'); G.toast = { text: '至少留一个人', t: 1.2 }; }
         else { refreshParty(); writeProgress(); G.sfx.play('confirm'); }
+      }
+      if (G.pressed.outfit) {
+        const who = G.ROSTER[partyIdx];
+        if (who && G.outfitCycle) {
+          const of = G.outfitCycle(who.id, 1);
+          if (of) G.toast = { text: `${who.name} 换上「${of.name}」`, t: 1.6 };
+          G.sfx.play('confirm');
+        }
       }
       if (G.pressed.cancel || G.pressed.partypanel) { showParty = false; G.sfx.play('cancel'); }
       return;
@@ -4951,7 +5031,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('队伍编成', x + 16, y + 22);
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
-    ctx.fillText('上下选择　确认 加入/移出　返回 关闭', x + 150, y + 22);
+    ctx.fillText('↑↓选人　确认 加入/移出　C 换装　返回 关闭', x + 120, y + 22);
 
     G.ROSTER.forEach((d, i) => {
       const ly = y + 44 + i * 22;
@@ -4971,6 +5051,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillText(d.element, x + 108, ly);
       ctx.fillStyle = 'rgba(200,192,180,0.6)';
       ctx.fillText(`ATK ${d.atk}  HP ${d.maxHp}`, x + 130, ly);
+      // 当前服装
+
     });
 
     // 右侧：共鸣
@@ -4992,6 +5074,19 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     });
     ctx.fillStyle = 'rgba(200,192,180,0.55)';
     ctx.fillText(`出战 ${G.formation.length} / ${G.MAX_PARTY}`, x + 214, y + h - 14);
+
+    // 选中角色当前穿的（放底部，避开右侧共鸣栏）
+    const curWho = G.ROSTER[partyIdx];
+    const curOf = curWho && G.outfitOf ? G.outfitOf(curWho.id) : null;
+    if (curOf) {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(190,182,170,0.75)';
+      ctx.fillText(curWho.name + ' 穿着', x + 16, y + h - 14);
+      ctx.fillStyle = curOf.color;
+      ctx.fillRect(x + 96, y + h - 21, 6, 6);
+      ctx.fillStyle = 'rgba(230,224,214,0.95)';
+      ctx.fillText(curOf.name, x + 108, y + h - 14);
+    }
   }
 
   function drawQuest(ctx) {
