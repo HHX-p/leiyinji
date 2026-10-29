@@ -1932,6 +1932,99 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     G.world.decorStats = { petal, tuft, pebble };
   }
 
+  const ROADY = (id) => id === 3 || id === 4 || id === 5 || id === 6;
+  const WATERY = (id) => id === 7 || id === 8;
+
+  /** 地块交界的过渡：把 16px 的硬边打碎 */
+  function paintEdges(g) {
+    const t = G.TILE_SIZE;
+    const TT = G.TILE;
+    const W = G.MAP_W, H = G.MAP_H;
+    let edge = 0;
+
+    for (let ty = 0; ty < H; ty++) {
+      for (let tx = 0; tx < W; tx++) {
+        const id = G.tileAt(tx, ty);
+        if (id === TT.VOID || id === TT.CLIFF) continue;
+        const bx = tx * t;
+        const by = ty * t;
+
+        // --- 路与草的交界：草咬进路面一起，土屑咬进草里 ---
+        if (ROADY(id)) {
+          const near = [
+            [0, -1], [0, 1], [-1, 0], [1, 0],
+          ];
+          for (const [dx, dy] of near) {
+            const nx = tx + dx, ny = ty + dy;
+            const nid = G.tileAt(nx, ny);
+            if (ROADY(nid) || WATERY(nid) || nid === TT.VOID || nid === TT.CLIFF) continue;
+            const h = G.hash2(tx * 7 + dx, ty * 13 + dy);
+            if (h < 0.45) continue;
+            // 沿这条边撒 2-3 粒土/草，位置带随机偏移
+            const n = h > 0.8 ? 3 : 2;
+            for (let k = 0; k < n; k++) {
+              const r1 = G.hash2(tx + k * 31, ty + k * 17);
+              const r2 = G.hash2(tx + k * 11 + 5, ty + k * 23 + 3);
+              let px, py;
+              if (dx === 0) {            // 上下边
+                px = bx + 1 + Math.floor(r1 * (t - 2));
+                py = dy < 0 ? by - 1 - Math.floor(r2 * 2) : by + t + Math.floor(r2 * 2);
+              } else {                   // 左右边
+                px = dx < 0 ? bx - 1 - Math.floor(r2 * 2) : bx + t + Math.floor(r2 * 2);
+                py = by + 1 + Math.floor(r1 * (t - 2));
+              }
+              g.fillStyle = r2 > 0.5 ? 'rgba(126,96,64,0.75)' : 'rgba(104,132,96,0.7)';
+              g.fillRect(px, py, 1, 1);
+              edge++;
+            }
+          }
+        }
+
+        // --- 水与岸的交界：一条断续的浅色浪线 ---
+        if (WATERY(id)) {
+          const up = ty > 0 ? G.tileAt(tx, ty - 1) : TT.VOID;
+          if (!WATERY(up) && up !== TT.VOID && up !== TT.CLIFF) {
+            const h = G.hash2(tx * 3, ty * 5);
+            if (h > 0.35) {
+              const len = 3 + Math.floor(h * 5);
+              const off = Math.floor(G.hash2(tx, ty + 9) * (t - len));
+              g.fillStyle = 'rgba(226,240,246,0.35)';
+              g.fillRect(bx + off, by + 1, len, 1);
+              g.fillStyle = 'rgba(226,240,246,0.18)';
+              g.fillRect(bx + off + 1, by + 2, Math.max(1, len - 2), 1);
+              edge++;
+            }
+          }
+        }
+      }
+    }
+    // --- 草地的明暗斑块：打散纯色，让地面有起伏 ---
+    let dapple = 0;
+    for (let ty = 0; ty < H; ty++) {
+      for (let tx = 0; tx < W; tx++) {
+        const id = G.tileAt(tx, ty);
+        if (id !== TT.GRASS && id !== TT.GRASS_DARK && id !== TT.GRASS_FLOWER) continue;
+        const h0 = G.hash2(tx * 5 + 3, ty * 7 + 11);
+        if (h0 < 0.55) continue;
+        const bx2 = tx * t, by2 = ty * t;
+        const n = h0 > 0.85 ? 3 : 2;
+        for (let k = 0; k < n; k++) {
+          const r1 = G.hash2(tx + k * 19, ty + k * 29);
+          const r2 = G.hash2(tx + k * 37 + 7, ty + k * 13 + 5);
+          const px = bx2 + Math.floor(r1 * (t - 4));
+          const py = by2 + Math.floor(r2 * (t - 3));
+          const wgt = 2 + Math.floor(r1 * 2);
+          g.fillStyle = r2 > 0.5 ? 'rgba(20,34,22,0.16)' : 'rgba(120,150,104,0.12)';
+          g.fillRect(px, py, wgt, 1);
+          if (r1 > 0.6) g.fillRect(px + 1, py + 1, wgt - 1, 1);
+          dapple++;
+        }
+      }
+    }
+
+    G.world.edgeStats = { edge, dapple };
+  }
+
   /** 切图后调用：把整张地形压成一张画布 */
   G.buildStatic = function () {
     const t = G.TILE_SIZE;
@@ -1944,6 +2037,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const g = c.getContext('2d');
     g.imageSmoothingEnabled = false;
     paintTiles(g);
+    paintEdges(g);
     paintDecor(g);
     G.world.staticCanvas = c;
     G.world.staticKey = G.currentMap;
