@@ -573,12 +573,94 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     pickup: () => { tone(880, 1320, 0.07, 'square', 0.05); },
   };
 
+  // ---------- 环境音乐 ----------
+  // 每个地区一个根音；和声只放根音 + 五度 + 八度，避免跑调
+  const MOODS = {
+    path: 110.00,    // 参道
+    shrine: 98.00,   // 大社
+    town: 123.47,    // 町街
+    depths: 82.41,   // 奥宫
+  };
+
+  let musicNodes = null;
+  let musicGain = null;
+  let currentMood = null;
+
+  function buildMusic() {
+    const c = ensure();
+    if (!c || musicNodes) return;
+    musicGain = c.createGain();
+    musicGain.gain.value = 0; // 淡入
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    lp.Q.value = 0.6;
+    musicGain.connect(lp);
+    lp.connect(c.destination);
+
+    musicNodes = [];
+    // 三层：根音、五度、八度，微微失谐制造厚度
+    const detunes = [0, 1.5, -1.2];
+    for (let i = 0; i < 3; i++) {
+      const o = c.createOscillator();
+      o.type = i === 2 ? 'triangle' : 'sine';
+      o.frequency.value = 110 * (i === 1 ? 1.5 : i === 2 ? 2 : 1);
+      o.detune.value = detunes[i];
+      const g = c.createGain();
+      g.gain.value = i === 2 ? 0.10 : 0.22;
+      o.connect(g);
+      g.connect(musicGain);
+      o.start();
+      musicNodes.push({ osc: o, gain: g });
+    }
+    // 缓慢浮动的滤波，让长音有呼吸感
+    const lfo = c.createOscillator();
+    lfo.frequency.value = 0.045;
+    const lfoGain = c.createGain();
+    lfoGain.gain.value = 180;
+    lfo.connect(lfoGain);
+    lfoGain.connect(lp.frequency);
+    lfo.start();
+
+    musicGain.gain.linearRampToValueAtTime(0.05, c.currentTime + 3);
+  }
+
+  G.music = {
+    /** 切到某个地区的调子 */
+    setMood(name) {
+      const c = ensure();
+      if (!c) return;
+      if (!musicNodes) buildMusic();
+      if (!musicNodes) return;
+      const root = MOODS[name] || MOODS.path;
+      if (currentMood === root) return;
+      currentMood = root;
+      const ratios = [1, 1.5, 2];
+      const now = c.currentTime;
+      musicNodes.forEach((n, i) => {
+        try {
+          n.osc.frequency.cancelScheduledValues(now);
+          n.osc.frequency.setTargetAtTime(root * ratios[i], now, 1.8);
+        } catch (e) { /* 忽略 */ }
+      });
+    },
+    setMuted(m) {
+      const c = ensure();
+      if (!c || !musicGain) return;
+      musicGain.gain.setTargetAtTime(m ? 0 : 0.05, c.currentTime, 0.4);
+    },
+  };
+
   G.sfx = {
     play(name) {
       const f = SFX[name];
       if (f) { try { f(); } catch (e) {} }
     },
-    toggle() { muted = !muted; return muted; },
+    toggle() {
+      muted = !muted;
+      if (G.music) G.music.setMuted(muted);
+      return muted;
+    },
     get muted() { return muted; },
     init() { ensure(); },
   };
@@ -1598,6 +1680,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const def = G.MAPS[key];
     if (!def) return;
     G.currentMap = key;
+    // 换地图时换调子（没有用户操作时 ensure() 会失败，静默跳过）
+    if (G.music) G.music.setMood(key);
     G.MAP_W = def.w;
     G.MAP_H = def.h;
     G.world.map = def.build();
