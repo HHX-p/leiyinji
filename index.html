@@ -1718,6 +1718,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
             '「神里家备了些薄礼……不，您不用的。」',
             '「那就当是，替这条街谢谢您吧。」',
           ],
+          linesIf: [
+            {
+              flags: ['final_boss'],
+              notFlags: ['seen_ending_shown'],
+              lines: [
+                '「奥宫那边……听说您下去了。」',
+                '「社奉行翻过旧档。那只丘丘暴徒，是被人从深处赶上来的。」',
+                '「赶它的东西，和您遇到的是同一个吧。」',
+                '「……那我就不问了。」',
+              ],
+            },
+          ],
           onEnd: () => G.flagSet('met_ayaka'),
         },
         {
@@ -1729,6 +1741,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           postLines: [
             '「风变了。」',
             '「现在吹过来的是樱花的味道。」',
+          ],
+          linesIf: [
+            {
+              flags: ['final_boss'],
+              notFlags: ['seen_ending_shown'],
+              lines: [
+                '「风停了。」',
+                '「把魔兽赶上来的那个东西，我一直闻得到它。」',
+                '「现在没有了。风里干干净净。」',
+                '「……走吧。该有人去看看上面了。」',
+              ],
+            },
           ],
         },
         {
@@ -3043,6 +3067,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const e = G.ending;
     e.active = false;
     G.progress.seen_ending = true;
+    if (G.flagSet) G.flagSet('seen_ending_shown');
     // 通关纪念
     G.progress.mora = (G.progress.mora || 0) + 3000;
     if (G.gearAdd) G.gearAdd('dream');
