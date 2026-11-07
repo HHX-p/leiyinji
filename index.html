@@ -3726,6 +3726,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     sub: 0,         // 技能子菜单
     log: [],
     timer: 0,
+    t: 0,
     flash: 0,
     shake: 0,
     result: null,
@@ -4068,6 +4069,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
   // ---------- 输入 ----------
   G.battleUpdate = function (dt) {
+    if (G.battle) G.battle.t = (G.battle.t || 0) + dt;
     const b = G.battle;
     if (!b.active) return;
     if (b.flash > 0) b.flash -= dt;
@@ -4303,18 +4305,120 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
   }
 
+  // ---------- 战斗背景 ----------
+  // 每个地区一套配色 + 一个远景剪影，烘成 canvas 只做一次
+  const BACKDROPS = {
+    path:   { sky: ['#241f33', '#151220'], far: '#1b1826', mid: '#221d2e', accent: '#f0a8c8', motif: 'torii' },
+    shrine: { sky: ['#1e1a33', '#120f1c'], far: '#191430', mid: '#221a38', accent: '#9fb0e8', motif: 'shrine' },
+    town:   { sky: ['#2a2028', '#171218'], far: '#241a22', mid: '#2e2028', accent: '#f0c070', motif: 'roof' },
+    depths: { sky: ['#101828', '#0a0e18'], far: '#0f1626', mid: '#16203a', accent: '#6fb0e0', motif: 'pillar' },
+  };
+  const backdropCache = {};
+  let petalSeed = null;
+
+  function buildBackdrop(key) {
+    const d = BACKDROPS[key] || BACKDROPS.path;
+    const W = G.VIEW_W, H = G.VIEW_H;
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const g = c.getContext('2d');
+
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, d.sky[0]);
+    grad.addColorStop(1, d.sky[1]);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+
+    const glow = g.createRadialGradient(W / 2, H * 0.42, 10, W / 2, H * 0.42, W * 0.62);
+    glow.addColorStop(0, 'rgba(120,140,200,0.16)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = glow;
+    g.fillRect(0, 0, W, H);
+
+    g.fillStyle = d.far;
+    if (d.motif === 'torii') {
+      for (let i = 0; i < 3; i++) {
+        const x = 60 + i * 150, y = H * 0.30 + i * 10, w = 46, h = 62;
+        g.fillRect(x, y, 6, h);
+        g.fillRect(x + w - 6, y, 6, h);
+        g.fillRect(x - 6, y, w + 12, 6);
+        g.fillRect(x + 4, y + 14, w - 8, 4);
+      }
+    } else if (d.motif === 'shrine') {
+      const cx = W / 2, y = H * 0.26;
+      g.beginPath();
+      g.moveTo(cx - 120, y + 42);
+      g.lineTo(cx - 60, y);
+      g.lineTo(cx + 60, y);
+      g.lineTo(cx + 120, y + 42);
+      g.closePath();
+      g.fill();
+      g.fillRect(cx - 96, y + 42, 192, 8);
+      g.fillRect(cx - 70, y + 50, 10, 46);
+      g.fillRect(cx + 60, y + 50, 10, 46);
+    } else if (d.motif === 'roof') {
+      for (let i = 0; i < 5; i++) {
+        const x = i * 100 - 20, y = H * 0.30 + (i % 2) * 12, w = 78, h = 40;
+        g.fillRect(x, y + h, w, H);
+        g.beginPath();
+        g.moveTo(x - 8, y + h);
+        g.lineTo(x + w / 2, y);
+        g.lineTo(x + w + 8, y + h);
+        g.closePath();
+        g.fill();
+      }
+    } else {
+      for (let i = 0; i < 6; i++) {
+        const x = 30 + i * 76, w = 18 + (i % 3) * 6;
+        g.fillRect(x, H * 0.20 + (i % 4) * 14, w, H);
+      }
+    }
+
+    g.fillStyle = d.mid;
+    g.globalAlpha = 0.85;
+    g.fillRect(0, H * 0.62, W, H * 0.38);
+    g.globalAlpha = 1;
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillRect(0, H * 0.70, W, 2);
+
+    return c;
+  }
+
+  function drawBattleBackdrop(ctx, b) {
+    const key = G.currentMap || 'path';
+    if (!backdropCache[key]) backdropCache[key] = buildBackdrop(key);
+    const d = BACKDROPS[key] || BACKDROPS.path;
+    ctx.drawImage(backdropCache[key], 0, 0);
+
+    const t = (b.t || 0);
+    if (!petalSeed) {
+      petalSeed = [];
+      for (let i = 0; i < 26; i++) {
+        petalSeed.push({
+          x: Math.random() * G.VIEW_W,
+          y: Math.random() * G.VIEW_H,
+          s: 0.4 + Math.random() * 0.9,
+          r: Math.random() * 6.28,
+        });
+      }
+    }
+    for (const p of petalSeed) {
+      const y = (p.y + t * 14 * p.s) % G.VIEW_H;
+      const x = p.x + Math.sin(t * 0.7 + p.r) * 9;
+      ctx.fillStyle = d.accent;
+      ctx.globalAlpha = 0.20 + 0.18 * p.s;
+      ctx.fillRect(x, y, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   G.drawBattle = function (ctx) {
     const b = G.battle;
     if (!b.active) return;
 
-    // 背景
-    if (!bgGrad) {
-      bgGrad = ctx.createLinearGradient(0, 0, 0, G.VIEW_H);
-      bgGrad.addColorStop(0, '#241f33');
-      bgGrad.addColorStop(1, '#14121a');
-    }
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
+    // 背景：按地图分层（远景烘一次，之后只贴图）
+    drawBattleBackdrop(ctx, b);
 
     ctx.save();
     if (b.shake > 0) {
