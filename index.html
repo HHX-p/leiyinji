@@ -5375,6 +5375,37 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     if (v) ctx.drawImage(v, 0, 0);
   }
 
+  // ---------- 面板越界检查（只在 ?audit=1 时启用） ----------
+  // 面板绘制时把框设到 G.auditRect，超出框的绘制会被记下来。
+  G.auditRect = null;
+  G.auditHits = [];
+  G.auditStart = function (ctx) {
+    if (ctx.__audited) return;
+    ctx.__audited = true;
+    const wrap = (name, check) => {
+      const orig = ctx[name].bind(ctx);
+      ctx[name] = function (...args) {
+        try { check(args); } catch (e) { /* 忽略 */ }
+        return orig(...args);
+      };
+    };
+    const rect = () => G.auditRect;
+    const note = (what, x, y) => {
+      const r = rect();
+      if (!r) return;
+      if (x < r.x - 2 || x > r.x + r.w + 2 || y < r.y - 14 || y > r.y + r.h + 2) {
+        // 这两类不是越界：面板的全屏遮罩、HUD 底部键位提示
+        const isDim = x <= 0 && y <= 0;
+        const isHint = y >= 250;
+        if (isDim || isHint) return;
+        G.auditHits.push({ what, x: Math.round(x), y: Math.round(y) });
+      }
+    };
+    wrap("fillText", (a) => note("text:" + String(a[0]).slice(0, 12), a[1], a[2]));
+    wrap("fillRect", (a) => note("rect", a[0], a[1]));
+    wrap("strokeRect", (a) => note("stroke", a[0], a[1]));
+  };
+
   function drawHUD(ctx) {
     const q = G.questCurrent();
     const post = G.postGame && G.postGame();
@@ -5423,6 +5454,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.82)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 90, y = 46, w = 300, h = 178;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5462,6 +5494,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.82)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 70, y = 40, w = 340, h = 196;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5539,6 +5572,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.85)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 60, y = 32, w = 360, h = 200;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5617,6 +5651,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.85)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 60, y = 24, w = 360, h = 216;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5676,6 +5711,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.84)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 56, y = 30, w = 368, h = 210;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5763,6 +5799,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.84)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 52, y = 26, w = 376, h = 220;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -5918,6 +5955,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const src = G.world.staticCanvas;
     const title = (G.MAPS[G.currentMap] || {}).name || '地图';
     const x = 24, y = 34, w = G.VIEW_W - 48, h = G.VIEW_H - 76;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
 
     ctx.fillStyle = 'rgba(20,18,26,0.96)';
     G.roundRect(ctx, x - 8, y - 26, w + 16, h + 40, 4);
@@ -5997,6 +6035,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(10,8,14,0.85)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
     const x = 60, y = 40, w = 360, h = 180;
+    G.auditRect = { x, y, w, h }; // 供越界检查用
     ctx.fillStyle = 'rgba(22,20,26,0.96)';
     G.roundRect(ctx, x, y, w, h, 4);
     ctx.fill();
@@ -6042,6 +6081,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
   function draw() {
     const ctx = G.ctx;
+    G.auditRect = null;   // 每帧清空，避免面板框跨帧残留造成误报
     ctx.fillStyle = '#1a1a22';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
 
