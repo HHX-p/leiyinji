@@ -3598,20 +3598,23 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   const G = (window.G = window.G || {});
 
   G.ACH = [
-    { id: 'first_win', name: '初阵', desc: '赢下第一场战斗', check: (p) => (p.battles || 0) >= 1 },
-    { id: 'win10', name: '十战', desc: '累计战斗十场', check: (p) => (p.battles || 0) >= 10 },
-    { id: 'lv5', name: '渐入佳境', desc: '任一角色达到 5 级', check: (p) => Object.values(p.party || {}).some((x) => x.lv >= 5) },
-    { id: 'rich', name: '小有积蓄', desc: '持有摩拉超过 2000', check: (p) => (p.mora || 0) >= 2000 },
-    { id: 'beast', name: '神樱之下', desc: '击败雷兽', check: (p) => !!(p.flags && p.flags.killed_beast) },
-    { id: 'kanden', name: '雷音已寂', desc: '击败雷音权现', check: (p) => !!(p.flags && p.flags.killed_raiden) },
-    { id: 'final', name: '终章', desc: '击败祸津御建鸣神命', check: (p) => !!(p.flags && p.flags.final_boss) },
-    { id: 'fullparty', name: '四人成行', desc: '编满四名角色', check: () => G.formation && G.formation.length >= 4 },
-    { id: 'gear5', name: '收藏家', desc: '拥有五件装备', check: () => G.gear && G.gear.owned.length >= 5 },
-    { id: 'upgrade', name: '磨刀不误', desc: '把一件装备强化到 +5', check: () => G.gear && Object.values(G.gear.lv || {}).some((v) => v >= 5) },
-    { id: 'cat', name: '猫的缘分', desc: '和参道上的猫混熟了', check: (p) => !!(p.flags && p.flags.cat_gift) },
-    { id: 'hidden', name: '藏起来的东西', desc: '找到角落里的影打', check: () => G.gear && G.gear.owned.indexOf('kageuchi') >= 0 },
-    { id: 'ending', name: '终章', desc: '看完结局演出', check: (p) => !!p.seen_ending },
+    { id: 'first_win', name: '初阵', desc: '赢下第一场战斗', mora: 120, check: (p) => (p.battles || 0) >= 1 },
+    { id: 'win10', name: '十战', desc: '累计战斗十场', mora: 300, check: (p) => (p.battles || 0) >= 10 },
+    { id: 'lv5', name: '渐入佳境', desc: '任一角色达到 5 级', mora: 260, check: (p) => Object.values(p.party || {}).some((x) => x.lv >= 5) },
+    { id: 'rich', name: '小有积蓄', desc: '持有摩拉超过 2000', mora: 200, check: (p) => (p.mora || 0) >= 2000 },
+    { id: 'beast', name: '神樱之下', desc: '击败雷兽', mora: 400, check: (p) => !!(p.flags && p.flags.killed_beast) },
+    { id: 'kanden', name: '雷音已寂', desc: '击败雷音权现', mora: 600, check: (p) => !!(p.flags && p.flags.killed_raiden) },
+    { id: 'final', name: '终章', desc: '击败祸津御建鸣神命', mora: 900, check: (p) => !!(p.flags && p.flags.final_boss) },
+    { id: 'fullparty', name: '四人成行', desc: '编满四名角色', mora: 150, check: () => G.formation && G.formation.length >= 4 },
+    { id: 'gear5', name: '收藏家', desc: '拥有五件装备', mora: 250, check: () => G.gear && G.gear.owned.length >= 5 },
+    { id: 'upgrade', name: '磨刀不误', desc: '把一件装备强化到 +5', mora: 300, check: () => G.gear && Object.values(G.gear.lv || {}).some((v) => v >= 5) },
+    { id: 'cat', name: '猫的缘分', desc: '和参道上的猫混熟了', mora: 100, check: (p) => !!(p.flags && p.flags.cat_gift) },
+    { id: 'hidden', name: '藏起来的东西', desc: '找到角落里的影打', mora: 350, check: () => G.gear && G.gear.owned.indexOf('kageuchi') >= 0 },
+    { id: 'ending', name: '终章', desc: '看完结局演出', mora: 1200, check: (p) => !!p.seen_ending },
   ];
+
+  /** 全部解锁的额外奖励 */
+  G.ACH_ALL_MORA = 2000;
 
   G.achUnlocked = {};
 
@@ -5352,7 +5355,17 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       achT = 0;
       const fresh = G.achCheck();
       if (fresh.length) {
-        G.toast = { text: '成就解锁：' + fresh[0].name, t: 2.2 };
+        // 成就给摩拉，全部解锁再给一笔总数
+        let gain = 0;
+        for (const a of fresh) gain += (a.mora || 0);
+        const before = G.achCount();
+        const allDone = before >= G.ACH.length;
+        if (allDone) gain += (G.ACH_ALL_MORA || 0);
+        G.progress.mora = (G.progress.mora || 0) + gain;
+        const label = allDone
+          ? `全成就达成！摩拉 +${gain}`
+          : `成就解锁：${fresh[0].name}　摩拉 +${gain}`;
+        G.toast = { text: label, t: 2.4 };
         if (G.sfx) G.sfx.play('levelup');
         writeProgress();
       }
