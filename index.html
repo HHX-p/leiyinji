@@ -4265,11 +4265,14 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     G.progress.hp = G.progress.hp || {};
     // 打完一场回一点血：不然连着打两场就必死
     const heal = b.result === 'win' ? 0.50 : 0;
+    let healedTotal = 0;
     for (const c of b.party) {
       const after = Math.min(c.maxHp, c.hp + c.maxHp * heal);
+      healedTotal += Math.round(after - c.hp);
       G.progress.hp[c.id] = Math.max(1, Math.round(after));
       c.hp = after;
     }
+    b.healed = healedTotal;
   };
 
   function winBattle() {
@@ -5043,8 +5046,13 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         ctx.fillStyle = GOLD;
         ctx.fillText(b.levelUp.join('　'), G.VIEW_W / 2, 146);
       }
+      // 战后回复：规则要让人看得见
+      if (b.healed > 0) {
+        ctx.fillStyle = '#8fd35a';
+        ctx.fillText(`战后回复 ${b.healed} HP`, G.VIEW_W / 2, 158);
+      }
       ctx.fillStyle = 'rgba(243,236,222,0.7)';
-      ctx.fillText(G.isTouch ? '点屏幕继续' : '按空格继续', G.VIEW_W / 2, 166);
+      ctx.fillText(G.isTouch ? '点屏幕继续' : '按空格继续', G.VIEW_W / 2, 180);
       ctx.textAlign = 'left';
     } else if (b.phase === 'lose') {
       ctx.fillStyle = 'rgba(10,8,14,0.78)';
