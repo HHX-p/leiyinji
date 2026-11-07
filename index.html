@@ -1231,6 +1231,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           ach: d.ach || {},
           seen_ending: !!d.seen_ending,
           catTalks: d.catTalks || 0,
+          hp: d.hp || {},            // 血量跨战斗保留，读档也要带上
+          seen_tutorial: !!d.seen_tutorial,
         };
         G.currentSlot = idx;
         return true;
