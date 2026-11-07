@@ -5027,6 +5027,13 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       console.error('[雷樱纪] 初始化世界失败', e);
     }
     // 调试/拍摄入口：?scene=ending 直接看终章
+    // 拍摄入口：?map=shrine 直接落到指定地图
+    const mm = /[?&]map=(path|shrine|town|depths)/.exec(location.search);
+    if (mm && G.MAPS[mm[1]]) {
+      G.progress.mapKey = mm[1];
+      G.progress.player = null;
+    }
+
     // 调试/拍摄入口：?scene=dialogue 直接开一段对话
     if (/[?&]scene=dialogue/.test(location.search)) {
       setTimeout(() => {
@@ -5440,6 +5447,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
     const v = ensureVignette();
     if (v) ctx.drawImage(v, 0, 0);
+
   }
 
   // ---------- 面板越界检查（只在 ?audit=1 时启用） ----------
