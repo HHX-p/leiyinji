@@ -1761,7 +1761,32 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         { type: 'altar', x: 24 * 16, y: 8 * 16 },
         { type: 'torii', x: 384, y: 25 * 16, w: 64 },
       ],
-      npcs: [],
+      npcs: [
+        {
+          id: 'chiyo_echo', name: '残响', sprite: 2,
+          x: 30 * 16, y: 20 * 16, dir: 2, portrait: 'chiyo',
+          lines: [
+            '「你走到这里了。」',
+            '「我叫千代。至少，曾经是。」',
+            '「这地方留不住活人，只留得住没说完的话。」',
+            '「前面那个东西——它不是将军大人。它只是被人希望成将军大人的样子。」',
+          ],
+          linesIf: [
+            {
+              flags: ['final_boss'],
+              lines: [
+                '「结束了吗。」',
+                '「那就好。我一直不敢走下去看。」',
+                '「替我看看外面的樱吧。我记不清它什么颜色了。」',
+              ],
+            },
+          ],
+          postLines: [
+            '残响已经不在了。',
+            '只剩下一点凉意，像雪化的时候。',
+          ],
+        },
+      ],
       encounters: [
         { id: 'kajin', x: 24 * 16, y: 11 * 16, alive: true, c: '#4a3a6a', c2: '#8a6ec8', flag: 'final_boss' },
       ],
