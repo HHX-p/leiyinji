@@ -3742,10 +3742,10 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       }
     }
 
-    // 指令行
-    for (let i = 0; i < 4; i++) {
-      const x = 16 + i * 76;
-      if (gx >= x && gx <= x + 68) {
+    // 指令行（5 个，与绘制保持一致：12 + i*62，宽 56）
+    for (let i = 0; i < 5; i++) {
+      const x = 12 + i * 62;
+      if (gx >= x && gx <= x + 56) {
         if (b.menu === i) {
           G.queueKey('action');
         } else {
@@ -3989,8 +3989,23 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
 
     const target = cur();
-    const move = b.enemy.moves[Math.floor(Math.random() * b.enemy.moves.length)];
+    // 有预警就打出预告的那一手，否则随机
+    let move = null;
+    if (b.telegraphMove) {
+      move = b.telegraphMove;
+      b.telegraphMove = null;
+      b.telegraph = null;
+    } else {
+      move = b.enemy.moves[Math.floor(Math.random() * b.enemy.moves.length)];
+    }
+    const guarding = target.guard > 0;
     const res = G.BL.enemyHit({ move, enemy: b.enemy, target });
+    if (guarding && res && res.dmg > 0) {
+      const cut = Math.max(1, Math.round(res.dmg * 0.5));
+      target.hp = Math.min(target.maxHp, target.hp + (res.dmg - cut));
+      res.dmg = cut;
+    }
+    target.guard = 0;
     b.shake = 0.16;
     b.flash = 0.08;
     b.anim = { who: 'e', t: 0, dur: 0.30 };
@@ -4062,6 +4077,17 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     updateFx(dt);
 
     if (b.phase === 'enemy') {
+      // 下一手要是大招，提前一回合举牌
+      if (!b.telegraphed && b.enemy && b.enemy.hp > 0 && b.enemy.moves) {
+        const big = b.enemy.moves.filter((m) => (m.power || 0) >= 1.8);
+        if (big.length && Math.random() < 0.55) {
+          const pick = big[Math.floor(Math.random() * big.length)];
+          b.telegraphMove = pick;
+          b.telegraph = pick.name || '大招';
+          b.telegraphed = true;
+          pushLog(`▲ ${b.enemy.name} 在蓄力… 下一击是「${b.telegraph}」`);
+        }
+      }
       b.timer -= dt;
       if (b.timer <= 0) enemyAct();
       return;
@@ -4138,6 +4164,19 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         b.subMode = 'item';
         b.sub = 0;
       } else if (b.menu === 2) {
+        // 防御：本回合减伤一半，回能，清一个负面
+        const a = cur();
+        a.guard = 1;
+        a.energy = Math.min(a.maxEnergy, a.energy + 15);
+        const st = a.status || {};
+        let cleared = '';
+        if (st.freeze) { delete st.freeze; cleared = '冻结'; }
+        else if (st.stun) { delete st.stun; cleared = '眩晕'; }
+        pushLog(`${a.name} 摆出架势` + (cleared ? `，${cleared}解除` : '') + '（本回合减伤）');
+        if (G.sfx) G.sfx.play('confirm');
+        b.phase = 'enemy';
+        b.timer = 0.36;
+      } else if (b.menu === 3) {
         const nx = nextAlive();
         if (nx !== b.idx) {
           b.idx = nx;
@@ -4403,18 +4442,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           ctx.fillText(`${it.def.name}×${it.n}`, x + 14, 254);
         }
       } else {
-        const items = ['技能', '道具', '换人', '逃跑'];
-        for (let i = 0; i < 4; i++) {
-          const x = 16 + i * 76;
+        const items = ['技能', '道具', '防御', '换人', '逃跑'];
+        for (let i = 0; i < 5; i++) {
+          const x = 12 + i * 62;
           const sel = i === b.menu;
           ctx.fillStyle = sel ? 'rgba(122,59,52,0.95)' : 'rgba(44,40,52,0.9)';
-          G.roundRect(ctx, x, 242, 68, 18, 3);
+          G.roundRect(ctx, x, 242, 56, 18, 3);
           ctx.fill();
           ctx.strokeStyle = sel ? GOLD : 'rgba(243,236,222,0.25)';
           ctx.stroke();
           ctx.fillStyle = sel ? '#fff' : 'rgba(220,212,200,0.8)';
           ctx.font = '10px "Microsoft YaHei", sans-serif';
-          ctx.fillText(items[i], x + 20, 255);
+          ctx.fillText(items[i], x + 14, 255);
         }
         // 队伍血量
         for (let i = 0; i < b.party.length; i++) {
