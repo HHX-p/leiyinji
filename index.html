@@ -1475,7 +1475,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 
     for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) set(x, y, rnd() > 0.88 ? T().GRASS_DARK : T().DIRT);
+      for (let x = 0; x < W; x++) set(x, y, rnd() > 0.82 ? T().PATH_CRACK : T().DIRT);
     }
     // 边界岩壁
     for (let x = 0; x < W; x++) { set(x, 0, T().CLIFF); set(x, 1, T().CLIFF); set(x, H - 1, T().CLIFF); }
@@ -1493,7 +1493,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
     for (let y = 3; y <= 9; y++) { set(13, y, T().PATH_L); set(34, y, T().PATH_R); }
     // 苔与碎石
-    for (const [x, y] of [[16, 14], [31, 16], [15, 20], [32, 22], [20, 12], [27, 12]]) set(x, y, T().FLOWERBED);
+    // 深处不该有花坛：换成碎石与岩块（岩块贴着墙放，不挡路）
+    for (const [x, y] of [[16, 14], [31, 16], [15, 20], [32, 22], [20, 12], [27, 12]]) set(x, y, T().PATH_CRACK);
+    for (const [x, y] of [[3, 4], [5, 9], [4, 18], [6, 23], [W - 4, 6], [W - 6, 12], [W - 5, 20], [W - 7, 24]]) set(x, y, T().ROCK);
     return m;
   }
 
@@ -2033,6 +2035,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const TT = G.TILE;
     const W = G.MAP_W, H = G.MAP_H;
     let petal = 0, tuft = 0, pebble = 0;
+    // 奥宫是地下：不撒花瓣和草簇，只留碎石
+    const cave = (G.currentMap === 'depths');
     for (let ty = 0; ty < H; ty++) {
       for (let tx = 0; tx < W; tx++) {
         const id = G.tileAt(tx, ty);
@@ -2043,7 +2047,12 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         const by = ty * t;
         const ox = 1 + Math.floor(G.hash2(tx + 91, ty + 17) * 13);
         const oy = 2 + Math.floor(G.hash2(tx + 7, ty + 53) * 12);
-        if (h > 0.94) {
+        if (cave) {
+          g.fillStyle = 'rgba(150,146,138,0.5)';
+          g.fillRect(bx + ox, by + oy, 1, 1);
+          if (h > 0.9) g.fillRect(bx + ox + 1, by + oy + 1, 1, 1);
+          pebble++;
+        } else if (h > 0.94) {
           g.fillStyle = 'rgba(244,198,216,0.9)';        // 落樱
           g.fillRect(bx + ox, by + oy, 2, 1);
           g.fillRect(bx + ox + 1, by + oy + 1, 1, 1);
@@ -5414,7 +5423,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     path:   'rgba(120,150,110,0.03)',
     shrine: 'rgba(150,120,180,0.05)',
     town:   'rgba(190,150,110,0.04)',
-    depths: 'rgba(70,90,160,0.10)',
+    depths: 'rgba(28,38,84,0.34)',
   };
   let vignetteCanvas = null;
   let gradeKey = '';
