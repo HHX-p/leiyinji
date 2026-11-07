@@ -1734,6 +1734,40 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           lines: ['「看看要点什么？」'],
         },
         {
+          id: 'innkeeper', name: '旅店老板娘', sprite: 2, x: 20 * 16, y: 26 * 16, dir: 1,
+          portrait: 'saiguu',
+          lines: [
+            '「住店吗？一百二十摩拉，包热水。」',
+            '「床不算软。但比在外面睡强。」',
+          ],
+          onEnd: () => {
+            const cost = 120;
+            if ((G.progress.mora || 0) < cost) {
+              G.toast = { text: '摩拉不够（要 120）', t: 2.0 };
+              G.sfx && G.sfx.play('cancel');
+              return;
+            }
+            G.progress.mora -= cost;
+            // 全员回满，按当前等级算上限
+            let healed = 0;
+            for (const c of (G.formation || [])) {
+              const def = (G.PARTY_DEF || []).find((p) => p.id === c);
+              if (!def) continue;
+              const lv = ((G.progress.party || {})[c] || { lv: 1 }).lv;
+              const max = G.scaleStat ? G.scaleStat(def.maxHp, lv) : def.maxHp;
+              healed += max;
+            }
+            // 直接写回存档血量，下一场按满血打
+            G.progress.hp = G.progress.hp || {};
+            for (const c of (G.formation || [])) {
+              delete G.progress.hp[c];
+            }
+            G.toast = { text: `睡了一觉　-${cost} 摩拉　全队回满`, t: 2.6 };
+            G.sfx && G.sfx.play('levelup');
+            G.writeProgress && G.writeProgress();
+          },
+        },
+        {
           id: 'asagi3', name: '浅葱', sprite: 2, x: 24 * 16, y: 24 * 16, dir: 1, portrait: 'sasayuri',
           lines: [
             '「町街比山上热闹吧？」',
@@ -4036,8 +4070,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       c.atk = G.scaleStat(gs.atk * (1 + (bo.atk || 0)), c.lv);
       c.def = Math.round(d.def * (1 + (bo.def || 0)));
       c.gearName = (G.gearOf ? G.gearOf(d.id) : { name: '徒手' }).name;
-      c.hp = c.maxHp;
-      c.hpShown = 1;
+      const saved = (G.progress.hp || {})[d.id];
+      c.hp = (saved === undefined) ? c.maxHp : Math.max(1, Math.min(c.maxHp, saved));
+      c.hpShown = c.hp / c.maxHp;
       c.energy = 0;
       c.cd = {};
       return c;
@@ -4185,10 +4220,25 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     return true;
   }
 
+  /** 把当前血量写回存档，下一场接着用 */
+  G.saveBattleHp = function () {
+    const b = G.battle;
+    if (!b || !b.party) return;
+    G.progress.hp = G.progress.hp || {};
+    // 打完一场回一点血：不然连着打两场就必死
+    const heal = b.result === 'win' ? 0.50 : 0;
+    for (const c of b.party) {
+      const after = Math.min(c.maxHp, c.hp + c.maxHp * heal);
+      G.progress.hp[c.id] = Math.max(1, Math.round(after));
+      c.hp = after;
+    }
+  };
+
   function winBattle() {
     const b = G.battle;
     b.phase = 'win';
     b.result = 'win';
+    G.saveBattleHp();
     pushLog(`${b.enemy.name} 被击倒了。`);
     if (G.save) {
       for (const c of b.party) {
@@ -4464,6 +4514,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           b.timer = 0.36;
         }
       } else {
+        G.saveBattleHp();
         b.active = false;
         G.onBattleFlee && G.onBattleFlee();
       }
