@@ -4263,7 +4263,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       if (b.defer.t <= 0) {
         const d = b.defer;
         b.defer = null;
-        spawnText(336 + (Math.random() - 0.5) * 24, 66, String(d.dmg), d.react ? '#ffd76a' : d.color);
+        // 浮动文字分车道：连续出手时不要全叠在一起
+        b.lane = ((b.lane || 0) + 1) % 4;
+        const laneY = 62 + b.lane * 9;
+        const laneX = 336 + (b.lane % 2 === 0 ? -1 : 1) * (10 + b.lane * 4);
+        spawnText(laneX, laneY, String(d.dmg), d.react ? '#ffd76a' : d.color);
         spawnParticles(336, 94, d.color, d.react ? 20 : 10);
         // 顿帧分档：轻击 2~3 帧，重击 5~8 帧，反应给最长的
         b.hitStop = d.react ? 0.10 : d.big ? 0.08 : 0.045;
@@ -4273,7 +4277,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         if (d.statusText) pushLog(`　${d.statusText}`);
         if (d.react) {
           pushLog(`元素反应：${d.react.name}！`);
-          spawnText(336, 44, d.react.name, '#ffd76a');
+          spawnText(336, 30, d.react.name, '#ffd76a');
         }
       }
     }
