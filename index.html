@@ -375,7 +375,7 @@
   };
 
   // ---------- 帧率统计 ----------
-  G.perf = { on: false, fps: 0, acc: 0, n: 0, max: 0 };
+  G.perf = { on: false, fps: 0, acc: 0, n: 0, max: 0, prev: 0, med: 0, worst: 0, hitch: 0, mem: 0, samples: [] };
 
   // ---------- 资源 ----------
   G.assets = { portraits: {} };
@@ -4691,6 +4691,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         if (pm[1] === 'shop') showShop = true;
         if (pm[1] === 'ach') showAch = true;
         if (pm[1] === 'map') showMap = true;
+        if (pm[1] === 'perf') G.perf.on = true;
       }, 300);
     }
 
@@ -5527,6 +5528,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     G.toast = { text: `${c ? c.name : ''}：${line}`, t: 2.6 };
   }
 
+  const ACTOR_POOL = [];
+
   function drawBigMap(ctx) {
     ctx.fillStyle = 'rgba(8,7,12,0.88)';
     ctx.fillRect(0, 0, G.VIEW_W, G.VIEW_H);
@@ -5672,7 +5675,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 
     G.drawDust(ctx, G.camera);
 
-    const actors = [];
+    // 复用同一个数组，避免每帧新建（移动端 GC 压力）
+    const actors = ACTOR_POOL;
+    actors.length = 0;
     for (const o of G.OBJECTS) actors.push({ y: o.y, kind: 'obj', ref: o });
     for (const n of G.NPCS) actors.push({ y: n.y, kind: 'npc', ref: n });
     for (const e of G.ENCOUNTERS) if (e.alive) actors.push({ y: e.y, kind: 'foe', ref: e });
@@ -5828,11 +5833,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
 
     if (G.perf && G.perf.on) {
-      const txt = `${G.perf.fps} fps`;
-      ctx.fillStyle = 'rgba(10,8,14,0.6)';
-      ctx.fillRect(6, G.VIEW_H - 26, 54, 12);
-      ctx.fillStyle = G.perf.fps >= 55 ? '#8fd35a' : G.perf.fps >= 40 ? '#f0d79a' : '#e06a5a';
+      const txt = `${G.perf.fps} fps` + (G.perf.med ? `  ${G.perf.med}ms` : '') +
+        (G.perf.worst ? ` 最慢${G.perf.worst}ms` : '') +
+        (G.perf.hitch ? ` 卡${G.perf.hitch}` : '') +
+        (G.perf.mem ? ` ${G.perf.mem}MB` : '');
       ctx.font = '10px Consolas, monospace';
+      const tw2 = ctx.measureText(txt).width + 8;
+      ctx.fillStyle = 'rgba(10,8,14,0.6)';
+      ctx.fillRect(6, G.VIEW_H - 26, tw2, 12);
+      ctx.fillStyle = G.perf.fps >= 55 ? '#8fd35a' : G.perf.fps >= 40 ? '#f0d79a' : '#e06a5a';
       ctx.fillText(txt, 10, G.VIEW_H - 17);
     }
 
@@ -5882,10 +5891,31 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     if (G.perf) {
       G.perf.acc += dt;
       G.perf.n++;
+      // 单帧耗时（用真实 now 差值，不低估）
+      if (G.perf.prev) {
+        const ms = now - G.perf.prev;
+        if (ms > 0 && ms < 500) {
+          G.perf.samples.push(ms);
+          if (G.perf.samples.length > 30) G.perf.samples.shift();
+          if (ms > 33) G.perf.hitch++;
+        }
+      }
+      G.perf.prev = now;
       if (G.perf.acc >= 0.5) {
         G.perf.fps = Math.round(G.perf.n / G.perf.acc);
         G.perf.acc = 0;
         G.perf.n = 0;
+        const s = G.perf.samples;
+        if (s.length) {
+          const sorted = s.slice().sort((a, b) => a - b);
+          G.perf.med = Math.round(sorted[Math.floor(sorted.length / 2)] * 10) / 10;
+          G.perf.worst = Math.round(sorted[sorted.length - 1] * 10) / 10;
+        }
+        try {
+          if (window.performance && performance.memory) {
+            G.perf.mem = Math.round(performance.memory.usedJSHeapSize / 1048576);
+          }
+        } catch (e) { /* 有的浏览器不给 */ }
       }
     }
     if (started) {
