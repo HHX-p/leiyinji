@@ -2614,11 +2614,21 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     const portrait = G.assets.portraits[d.npc.portrait];
     if (portrait) {
       const px = bx + 4;
-      const py = by - PORTRAIT_H + bh - 2;
-      ctx.fillStyle = 'rgba(26,22,30,0.9)';
+      // 轻微呼吸浮动，别像贴纸
+      const breathe = Math.sin((performance.now() / 1000) * 1.6) * 1.2;
+      const py = by - PORTRAIT_H + bh - 2 + breathe;
+      // 底：暗色 + 从底部透出的元素色
+      ctx.fillStyle = 'rgba(26,22,30,0.92)';
       ctx.fillRect(px, py, PORTRAIT_W, PORTRAIT_H);
       ctx.drawImage(portrait, px, py, PORTRAIT_W, PORTRAIT_H);
-      ctx.strokeStyle = 'rgba(243,236,222,0.75)';
+      const elemC = (G.ELEM[d.npc.element] || {}).c || 'rgba(243,236,222,0.9)';
+      // 内描边（元素色）+ 外描边（浅色）
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = elemC;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 1, py + 1, PORTRAIT_W - 2, PORTRAIT_H - 2);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(243,236,222,0.85)';
       ctx.lineWidth = 1;
       ctx.strokeRect(px + 0.5, py + 0.5, PORTRAIT_W - 1, PORTRAIT_H - 1);
     }
@@ -4351,13 +4361,20 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     panel(ctx, 268, 168, 202, 50);
     const portrait = G.assets.portraits && G.assets.portraits[actor.portrait];
     if (portrait) {
+      const pw = 30, ph = 42;
+      const px = 272, py = 172;
+      // 源图 2:3，按高度取宽度，居中裁，避免被拉宽
+      const srcW = Math.min(portrait.width, Math.round(portrait.height * pw / ph));
+      const sx = Math.round((portrait.width - srcW) / 2);
       ctx.fillStyle = 'rgba(16,14,20,0.95)';
-      ctx.fillRect(272, 172, 34, 42);
-      ctx.drawImage(portrait, 0, 0, portrait.width, portrait.height, 272, 172, 34, 42);
+      ctx.fillRect(px, py, pw, ph);
+      ctx.drawImage(portrait, sx, 0, srcW, portrait.height, px, py, pw, ph);
+      // 边框：优先用服装色，否则用元素色
       const ofr = (G.outfitOf && G.outfitOf(actor.id)) || null;
-      ctx.strokeStyle = ofr ? ofr.color : 'rgba(243,236,222,0.55)';
+      const elemC = (G.ELEM[actor.element] || {}).c;
+      ctx.strokeStyle = ofr ? ofr.color : (elemC || 'rgba(243,236,222,0.55)');
       ctx.lineWidth = 1;
-      ctx.strokeRect(272.5, 172.5, 33, 41);
+      ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
     }
     const tx = portrait ? 312 : 276;
     const tw = portrait ? 150 : 186;
