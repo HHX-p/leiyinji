@@ -4583,17 +4583,41 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         g.fillRect(x + 4, y + 14, w - 8, 4);
       }
     } else if (d.motif === 'shrine') {
-      const cx = W / 2, y = H * 0.26;
+      const cx = W / 2, y = H * 0.22;
+      // 上檐（窄）
       g.beginPath();
-      g.moveTo(cx - 120, y + 42);
-      g.lineTo(cx - 60, y);
-      g.lineTo(cx + 60, y);
-      g.lineTo(cx + 120, y + 42);
+      g.moveTo(cx - 74, y + 20);
+      g.lineTo(cx - 44, y);
+      g.lineTo(cx + 44, y);
+      g.lineTo(cx + 74, y + 20);
       g.closePath();
       g.fill();
-      g.fillRect(cx - 96, y + 42, 192, 8);
-      g.fillRect(cx - 70, y + 50, 10, 46);
-      g.fillRect(cx + 60, y + 50, 10, 46);
+      // 下檐（宽，带起翘）
+      g.beginPath();
+      g.moveTo(cx - 124, y + 52);
+      g.quadraticCurveTo(cx - 96, y + 30, cx - 70, y + 24);
+      g.lineTo(cx + 70, y + 24);
+      g.quadraticCurveTo(cx + 96, y + 30, cx + 124, y + 52);
+      g.lineTo(cx + 118, y + 58);
+      g.lineTo(cx - 118, y + 58);
+      g.closePath();
+      g.fill();
+      // 柱
+      for (let i = -2; i <= 2; i++) {
+        g.fillRect(cx + i * 34 - 4, y + 58, 9, 54);
+      }
+      g.fillRect(cx - 96, y + 58, 192, 7);
+      // 殿前石灯笼 + 暖光
+      for (const lx of [cx - 86, cx + 86]) {
+        const lg = g.createRadialGradient(lx, y + 74, 2, lx, y + 74, 34);
+        lg.addColorStop(0, 'rgba(255,200,130,0.34)');
+        lg.addColorStop(1, 'rgba(255,200,130,0)');
+        g.fillStyle = lg;
+        g.fillRect(lx - 34, y + 40, 68, 68);
+        g.fillStyle = d.far;
+        g.fillRect(lx - 5, y + 66, 11, 26);
+        g.fillRect(lx - 9, y + 60, 19, 7);
+      }
     } else if (d.motif === 'roof') {
       for (let i = 0; i < 5; i++) {
         const x = i * 100 - 20, y = H * 0.30 + (i % 2) * 12, w = 78, h = 40;
