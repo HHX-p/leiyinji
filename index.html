@@ -4155,10 +4155,24 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     pushLog(`${b.enemy.name} 被击倒了。`);
     if (G.save) {
       for (const c of b.party) {
+        const before = (G.progress.party[c.id] || { lv: 1 });
+        const oldHp = G.scaleStat(G.PARTY_DEF.find((x) => x.id === c.id).maxHp, before.lv);
+        const oldAtk = G.scaleStat(G.PARTY_DEF.find((x) => x.id === c.id).atk, before.lv);
         const r = G.save.gainExp(c.id, b.xp);
         if (r.levels > 0) {
-          b.levelUp.push(`${c.name} 升到 Lv.${r.lv}`);
-          pushLog(`${c.name} 升到 Lv.${r.lv}！`);
+          const base = G.PARTY_DEF.find((x) => x.id === c.id);
+          const newHp = G.scaleStat(base.maxHp, r.lv);
+          const newAtk = G.scaleStat(base.atk, r.lv);
+          b.levelUp.push(`${c.name} Lv.${before.lv} → Lv.${r.lv}`);
+          pushLog(`${c.name} 升到 Lv.${r.lv}！HP +${newHp - oldHp}　ATK +${newAtk - oldAtk}`);
+          b.levelGain = b.levelGain || [];
+          b.levelGain.push({
+            name: c.name,
+            lv: r.lv,
+            hp: newHp - oldHp,
+            atk: newAtk - oldAtk,
+            t: 2.6,
+          });
         }
       }
       if (b.enemy.mora) G.save.addMora(b.enemy.mora);
@@ -4280,6 +4294,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           spawnText(336, 30, d.react.name, '#ffd76a');
         }
       }
+    }
+
+    if (b.levelGain) {
+      for (const g of b.levelGain) g.t -= dt;
+      b.levelGain = b.levelGain.filter((g) => g.t > -0.4);
     }
 
     if (b.enemyKnock > 0) b.enemyKnock = Math.max(0, b.enemyKnock - dt * 60);
@@ -4639,6 +4658,32 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.restore();
 
     drawFx(ctx);
+
+    // 升级提示：面板上方浮一块，2.6 秒淡出
+    if (b.levelGain && b.levelGain.length) {
+      let gy = 96;
+      for (const g of b.levelGain) {
+        if (g.t <= 0) continue;
+        const a = Math.min(1, g.t / 0.6);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = 'rgba(28,24,34,0.94)';
+        G.roundRect(ctx, 150, gy - 14, 180, 34, 4);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(240,215,154,0.85)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#ffd98a';
+        ctx.font = 'bold 11px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(g.name + '  Lv.' + g.lv, 240, gy - 1);
+        ctx.font = '10px "Microsoft YaHei", sans-serif';
+        ctx.fillStyle = '#8fd35a';
+        ctx.fillText('HP +' + g.hp + '  ATK +' + g.atk, 240, gy + 13);
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 1;
+        gy += 40;
+      }
+    }
 
     // 敌人信息
     panel(ctx, 10, 10, 168, 44);
@@ -5646,7 +5691,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillText('↑↓选人　确认 加入/移出　C 换装　返回 关闭', x + 120, y + 22);
 
     G.ROSTER.forEach((d, i) => {
-      const ly = y + 44 + i * 22;
+      const ly = y + 40 + i * 24;
       const sel = i === partyIdx;
       if (sel) {
         ctx.fillStyle = 'rgba(122,59,52,0.45)';
@@ -5658,6 +5703,10 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillStyle = inParty ? '#f3ecde' : 'rgba(160,152,142,0.55)';
       ctx.fillText(inParty ? '●' : '○', x + 18, ly);
       ctx.fillText(d.name, x + 34, ly);
+      // 等级
+      const pv = (G.progress.party && G.progress.party[d.id]) || { lv: 1 };
+      ctx.fillStyle = 'rgba(240,215,154,0.85)';
+      ctx.fillText('Lv.' + pv.lv, x + 34, ly + 10);
       ctx.fillStyle = (G.ELEM[d.element] || {}).c || '#ccc';
       ctx.font = '10px "Microsoft YaHei", sans-serif';
       ctx.fillText(d.element, x + 108, ly);
