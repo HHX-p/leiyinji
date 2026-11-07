@@ -5508,8 +5508,21 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
     ctx.fillText('上下选择　确认购买　返回 关闭', x + 90, y + 24);
 
-    G.SHOP.forEach((it, i) => {
-      const ly = y + 50 + i * 21;
+    // 窗口化：只画放得下的条数，否则会溢出面板
+    const rowH = 21;
+    const listTop = y + 50;
+    const listBottom = y + h - 14;
+    const maxRows = Math.max(3, Math.floor((listBottom - listTop) / rowH));
+    let shopStart = 0;
+    if (G.SHOP.length > maxRows) {
+      shopStart = Math.min(Math.max(0, shopIdx - Math.floor(maxRows / 2)),
+                           G.SHOP.length - maxRows);
+    }
+    const shopShown = G.SHOP.slice(shopStart, shopStart + maxRows);
+
+    shopShown.forEach((it, k) => {
+      const i = shopStart + k;
+      const ly = listTop + k * rowH;
       const sel = i === shopIdx;
       const owned = it.kind === 'gear' && G.gear.owned.indexOf(it.id) >= 0;
       const afford = (G.progress.mora || 0) >= it.price;
@@ -5531,6 +5544,24 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillText(owned ? '已拥有' : `${it.price}`, x + w - 18, ly);
       ctx.textAlign = 'left';
     });
+
+    // 还有多少条没显示
+    const more = G.SHOP.length - maxRows;
+    if (more > 0) {
+      ctx.font = '10px "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = 'rgba(160,152,142,0.65)';
+      if (shopStart > 0) {
+        ctx.textAlign = 'right';
+        ctx.fillText(`↑ 还有 ${shopStart} 条`, x + w - 18, y + 44);
+        ctx.textAlign = 'left';
+      }
+      const left = G.SHOP.length - (shopStart + shopShown.length);
+      if (left > 0) {
+        ctx.textAlign = 'right';
+        ctx.fillText(`↓ 还有 ${left} 条`, x + w - 18, y + h - 20);
+        ctx.textAlign = 'left';
+      }
+    }
   }
 
   function drawAch(ctx) {
@@ -5569,12 +5600,12 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       const ly = aTop + i * aRowH;
       const got = !!(G.progress.ach && G.progress.ach[a.id]);
       ctx.font = '10px "Microsoft YaHei", sans-serif';
-      ctx.fillStyle = got ? '#8fd35a' : 'rgba(150,142,132,0.55)';
+      ctx.fillStyle = got ? '#8fd35a' : 'rgba(198,190,178,0.9)';
       ctx.fillText(got ? '✓' : '○', x + 18, ly);
-      ctx.fillStyle = got ? '#f3ecde' : 'rgba(150,142,132,0.6)';
+      ctx.fillStyle = got ? '#fff6e2' : 'rgba(214,206,194,0.92)';
       ctx.fillText(a.name, x + 34, ly);
       ctx.font = '10px "Microsoft YaHei", sans-serif';
-      ctx.fillStyle = 'rgba(180,172,160,0.65)';
+      ctx.fillStyle = got ? 'rgba(214,206,194,0.8)' : 'rgba(168,160,150,0.8)';
       ctx.fillText(a.desc, x + 110, ly);
     });
     if (aStart > 0) {
