@@ -3238,9 +3238,11 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       id: 'slime_water', name: '水史莱姆', element: '水',
       maxHp: 900, atk: 120, def: 40, spd: 60, exp: 70, mora: 60,
       color: [74, 140, 190], color2: [108, 176, 224],
+      persona: 'sly',
       moves: [
         { name: '水弹', power: 0.9 },
         { name: '扑击', power: 1.1 },
+        { name: '涌流', power: 1.3, pierce: true, text: '无视防御' },
       ],
     },
     hili: {
@@ -4037,10 +4039,30 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       b.telegraphMove = null;
       b.telegraph = null;
     } else {
-      move = b.enemy.moves[Math.floor(Math.random() * b.enemy.moves.length)];
+      const moves = b.enemy.moves;
+      const lastGuarded = b.playerGuarded;
+      const pierce = moves.filter((m) => m.pierce);
+      if (b.enemy.persona === 'sly' && lastGuarded && pierce.length && Math.random() < 0.6) {
+        move = pierce[Math.floor(Math.random() * pierce.length)];
+        pushLog(`${b.enemy.name} 看穿了你的架势。`);
+      } else {
+        move = moves[Math.floor(Math.random() * moves.length)];
+      }
     }
-    const guarding = target.guard > 0;
+    b.playerGuarded = false;
+    const guarding = target.guard > 0 && !move.pierce;
+    // 残血狂怒：HP < 30% 时攻击 +25%
+    let enrage = false;
+    if (b.enemy.hp / b.enemy.maxHp < 0.30 && !b.enemy.enraged) {
+      b.enemy.enraged = true;
+      b.enemy.atk = Math.round(b.enemy.atk * 1.25);
+      enrage = true;
+    }
+    if (enrage) pushLog(`${b.enemy.name} 狂暴了！攻击上升`);
     const res = G.BL.enemyHit({ move, enemy: b.enemy, target });
+    if (target.guard > 0 && move.pierce) {
+      pushLog('架势被破了！');
+    }
     if (guarding && res && res.dmg > 0) {
       const cut = Math.max(1, Math.round(res.dmg * 0.5));
       target.hp = Math.min(target.maxHp, target.hp + (res.dmg - cut));
@@ -4208,6 +4230,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       } else if (b.menu === 2) {
         // 防御：本回合减伤一半，回能，清一个负面
         const a = cur();
+        b.playerGuarded = true;
         a.guard = 1;
         a.energy = Math.min(a.maxEnergy, a.energy + 15);
         const st = a.status || {};
