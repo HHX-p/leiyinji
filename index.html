@@ -680,6 +680,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   const G = (window.G = window.G || {});
 
   G.ITEMS = {
+    hairpin: { name: '发簪', desc: '铜的，簪头是一朵小小的桔梗', color: '#c8a86a', key: true },
     tofu:   { name: '油豆腐', desc: '狐狸最爱。回复 80 生命', heal: 80, color: '#e2b25a' },
     dango:  { name: '三色团子', desc: '甜的。回复 50 生命', heal: 50, color: '#e08aa8' },
     salve:  { name: '伤药', desc: '神社的常备药。回复 180 生命', heal: 180, color: '#8fd35a' },
@@ -1057,6 +1058,35 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     { id: 'ch3_boss', text: '击退祸津御建鸣神命', done: (f) => f.final_boss },
     { id: 'ch3_end', text: '终章 · 完', done: (f) => f.chapter3_done },
   ];
+
+  // ---------- 支线 ----------
+  // 不挡主线，各自有结尾；完成后在任务日志里打勾
+  G.SIDES = [
+    {
+      id: 'lantern', text: '点灯', desc: '浅葱的妹妹进了奥宫，一直没回来',
+      steps: [
+        { text: '听浅葱说完', done: (f) => f.side_lantern_start },
+        { text: '在奥宫找到发簪', done: (f) => f.side_hairpin },
+        { text: '把发簪交给浅葱', done: (f) => f.side_lantern_end },
+      ],
+    },
+  ];
+
+  /** 当前进行中的支线（没接或已完成返回 null） */
+  G.sideCurrent = function () {
+    for (const s of G.SIDES) {
+      if (s.steps.every((st) => st.done(G.flags))) continue;
+      if (!s.steps[0].done(G.flags)) continue;   // 还没接
+      const todo = s.steps.find((st) => !st.done(G.flags));
+      if (todo) return { side: s, step: todo };
+    }
+    return null;
+  };
+
+  /** 已完成的支线数 */
+  G.sideDoneCount = function () {
+    return G.SIDES.filter((s) => s.steps.every((st) => st.done(G.flags))).length;
+  };
 
   G.flagSet = function (k, v) {
     if (!k) return;
@@ -1469,19 +1499,50 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
             '「将军大人？！……失礼了。」',
             '「宫司大人吩咐过，说您今天会走这条参道，让我们把灯笼都点上。」',
             '「参道尽头就是鸟居。过了鸟居，就不再是人间的地界了。」',
+            '「……我妹妹也是过了那道鸟居，就没回来。」',
           ],
+          onEndDefault: () => G.flagSet('side_lantern_start'),
           postLines: [
             '「参道上的灯笼，我又都点上了。」',
             '「宫司大人说，往后不必再守夜了。」',
           ],
           linesIf: [
+            // 支线：把发簪带回来了
+            {
+              flags: ['side_hairpin'],
+              lines: [
+                '「这是……」',
+                '「您从哪里找到的？」',
+                '「……对不起。我一直以为，她只是不想回来。」',
+                '「谢谢您。今晚的灯，我只点一盏就够了。」',
+              ],
+              onEnd: () => {
+                G.flagSet('side_lantern_end');
+                G.progress.mora = (G.progress.mora || 0) + 400;
+                G.toast = { text: '支线「点灯」完成 · 摩拉 +400', t: 3.0 };
+                G.sfx && G.sfx.play('levelup');
+              },
+            },
+            // 支线：已接下，还没找到
+            {
+              flags: ['side_lantern_start'],
+              notFlags: ['side_hairpin'],
+              lines: [
+                '「她走的那天，也是这样的风。」',
+                '「奥宫那边……您要是路过，能不能帮我看看。」',
+                '「不用带什么回来。看一眼就好。」',
+              ],
+            },
+            // 主线推进后
             {
               flags: ['entered_shrine', 'reached_torii'],
               lines: [
                 '「您出来了。」',
                 '「我以为您会在里面待很久。」',
                 '「……灯还亮着。您看，一路都是。」',
+                '「说起来，我妹妹以前也常在这条路上跑。」',
               ],
+              onEnd: () => G.flagSet('side_lantern_start'),
             },
           ],
           onEnd: () => G.flagSet('met_asagi'),
@@ -1542,6 +1603,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       pickups: [
         { item: 'dango', x: 27 * 16, y: 22 * 16, taken: false },
         { item: 'tofu', x: 20 * 16, y: 30 * 16, taken: false },
+        { item: 'hairpin', x: 30 * 16, y: 14 * 16, taken: false, flag: 'side_hairpin' },
       ],
       portals: [
         { x: 384, y: 8 * 16 + 2, r: 22, to: 'shrine', tx: 24 * 16 + 8, ty: 24 * 16 },
@@ -1685,6 +1747,8 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       pickups: [
         { item: 'salve', x: 18 * 16, y: 23 * 16, taken: false },
         { item: 'charm', x: 26 * 16, y: 23 * 16, taken: false },
+        // 支线「点灯」：浅葱妹妹的发簪，摆在往深处走的路上
+        { item: 'hairpin', x: 22 * 16, y: 18 * 16, taken: false, flag: 'side_hairpin' },
       ],
       portals: [{ x: 384, y: 25 * 16 - 4, r: 22, to: 'shrine', tx: 9 * 16, ty: 14 * 16 }],
       spawn: { x: 24 * 16 + 8, y: 23 * 16, dir: 1 },
@@ -5061,6 +5125,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           G.itemAdd(p.item, 1);
           label = G.ITEMS[p.item].name;
         }
+        if (p.flag) G.flagSet(p.flag);
         G.sfx.play('pickup');
         G.toast = { text: `获得 ${label}`, t: 1.6 };
         G.progress.pickups = G.progress.pickups || {};
@@ -5532,6 +5597,16 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.font = '10px "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(200,192,180,0.7)';
     ctx.fillText('Esc / 返回 关闭', x + w - 92, y + 22);
+
+    // 支线：贴在面板底部，不占主线位置
+    const side = G.sideCurrent ? G.sideCurrent() : null;
+    if (side) {
+      const sy = y + h - 34;
+      ctx.fillStyle = 'rgba(150,190,230,0.9)';
+      ctx.fillText(`支线 · ${side.side.text}`, x + 16, sy);
+      ctx.fillStyle = 'rgba(200,192,180,0.75)';
+      ctx.fillText(side.step.text, x + 92, sy);
+    }
 
     // 只显示当前进度附近的几条，否则 14 条会顶出面板
     const cur = G.questCurrent();
