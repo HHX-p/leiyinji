@@ -1474,6 +1474,16 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
             '「参道上的灯笼，我又都点上了。」',
             '「宫司大人说，往后不必再守夜了。」',
           ],
+          linesIf: [
+            {
+              flags: ['entered_shrine', 'reached_torii'],
+              lines: [
+                '「您出来了。」',
+                '「我以为您会在里面待很久。」',
+                '「……灯还亮着。您看，一路都是。」',
+              ],
+            },
+          ],
           onEnd: () => G.flagSet('met_asagi'),
         },
         {
@@ -1500,6 +1510,15 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
           postLines: [
             '猫睡着了。',
             '尾巴还慢慢地摆着。',
+          ],
+          linesIf: [
+            {
+              flags: ['entered_depths'],
+              lines: [
+                '猫看了看你，站起来走了两步，又坐下。',
+                '它身上有一点雷的味道——很淡，像刚从哪里回来。',
+              ],
+            },
           ],
           onEnd: () => {
             const p = G.progress;
@@ -2512,7 +2531,18 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     d.active = true;
     d.npc = npc;
     if (npc.dynamic && G.mikoLines) npc.lines = G.mikoLines();
-    const useLines = (G.postGame && G.postGame() && npc.postLines) ? npc.postLines : npc.lines;
+    // 条件台词：按旗标优先，其次通关后台词，最后默认
+    let useLines = null;
+    if (npc.linesIf) {
+      for (const v of npc.linesIf) {
+        const hit = v.flags ? v.flags.every((f) => G.flags[f]) : true;
+        const miss = v.notFlags ? v.notFlags.every((f) => !G.flags[f]) : true;
+        if (hit && miss) { useLines = v.lines; break; }
+      }
+    }
+    if (!useLines) {
+      useLines = (G.postGame && G.postGame() && npc.postLines) ? npc.postLines : npc.lines;
+    }
     d.lines = useLines.slice();
     d.li = 0;
     d.revealed = 0;
@@ -4711,6 +4741,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
   function update(dt) {
     clock += dt;
     if (G.env) G.updateEnv(dt);
+    if (typeof maybeBanter === 'function') maybeBanter(dt);
 
     if (G.fade > 0) G.fade = Math.max(0, G.fade - dt * 3.2);
 
@@ -5465,6 +5496,35 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       ctx.fillStyle = '#b18cff';
       ctx.fillRect(x + (e.x / G.TILE_SIZE) * 2, y + (e.y / G.TILE_SIZE) * 2, 2, 2);
     }
+  }
+
+  // ---------- 沿途议论 ----------
+  // 每个角色几句随性的话，进新图时偶尔冒一句（不打断操作，走 toast）
+  const BANTER = {
+    ei: ['「这条路我走过很多次。」', '「风变了。」', '「别停下来。」'],
+    miko: ['「将军大人，你走得太快了。」', '「这里的樱，开得不错。」', '「要歇一会儿吗？」'],
+    ayaka: ['「雪还没化。」', '「兄长的信，我还没回。」', '「请小心脚下。」'],
+    kazuha: ['「叶子和风，说的是同一件事。」', '「这地方我来过。」', '「听。」'],
+    sara: ['「我在前面探路。」', '「有动静。」', '「天狗的耳朵，不会漏。」'],
+    lumine: ['「……」（她在看别处）', '「这里安静得不太对。」', '「走吧。」'],
+  };
+  let lastBanterMap = '';
+  let banterCd = 0;
+
+  function maybeBanter(dt) {
+    banterCd -= dt;
+    if (banterCd > 0) return;
+    const key = G.currentMap;
+    if (key === lastBanterMap) return;
+    lastBanterMap = key;
+    banterCd = 24;                       // 24 秒内不再冒
+    if (Math.random() > 0.45) return;    // 不是每次都说话
+    const who = (G.formation && G.formation.length) ? G.formation[0] : 'ei';
+    const list = BANTER[who];
+    if (!list) return;
+    const line = list[Math.floor(Math.random() * list.length)];
+    const c = (G.ROSTER || []).find((r) => r.id === who);
+    G.toast = { text: `${c ? c.name : ''}：${line}`, t: 2.6 };
   }
 
   function drawBigMap(ctx) {
