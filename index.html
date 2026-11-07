@@ -5540,7 +5540,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         G.progress.mora = (G.progress.mora || 0) + gain;
         const label = allDone
           ? `全成就达成！摩拉 +${gain}`
-          : `成就解锁：${fresh[0].name}　摩拉 +${gain}`;
+          : fresh.length === 1
+            ? `成就解锁：${fresh[0].name}　摩拉 +${gain}`
+            : `成就解锁 ×${fresh.length}（${fresh[0].name} 等）　摩拉 +${gain}`;
         G.toast = { text: label, t: 2.4 };
         if (G.sfx) G.sfx.play('levelup');
         writeProgress();
