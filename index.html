@@ -4650,6 +4650,31 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     ctx.globalAlpha = 1;
   }
 
+  /** 敌人蓄力时的视觉警告：红色感叹号 + 招式名 */
+  function drawTelegraph(ctx) {
+    const b = G.battle;
+    if (!b || !b.telegraph) return;
+    const t = b.t || 0;
+    const k = 0.5 + 0.5 * Math.sin(t * 7);
+    // 敌人位置（和绘制那边保持一致：右侧 336 附近，抬到头顶）
+    const x = 336, y = 54;
+    ctx.save();
+    ctx.globalAlpha = 0.55 + 0.45 * k;
+    // 底
+    ctx.fillStyle = 'rgba(120,30,30,0.92)';
+    G.roundRect(ctx, x - 54, y - 14, 108, 20, 4);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,120,100,${(0.5 + 0.5 * k).toFixed(2)})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 10px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = '#ffd0c4';
+    ctx.fillText('！' + b.telegraph, x, y);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+
   G.drawBattle = function (ctx) {
     const b = G.battle;
     if (!b.active) return;
@@ -4694,6 +4719,7 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
     ctx.restore();
 
+    drawTelegraph(ctx);
     drawFx(ctx);
 
     // 升级提示：面板上方浮一块，2.6 秒淡出
