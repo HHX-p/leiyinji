@@ -4009,6 +4009,134 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
 </script>
   <script>
 /**
+ * cutscene.js —— 章节之间的事件戏
+ *
+ * 进大社、打完雷兽、进町街、开西侧门、进奥宫、打完最终 BOSS——
+ * 这些节点原来只有一两行提示，现在有整段过场对话。
+ *
+ * 每条只播一次，播完设一个 flag。
+ */
+(function () {
+  'use strict';
+  const G = (window.G = window.G || {});
+
+  /** 每条：id / cond（什么时候播）/ 说话人 / 立绘 / lines / onEnd */
+  G.CUTSCENES = [
+    {
+      id: 'cs_enter_shrine',
+      cond: () => G.flags.entered_shrine && !G.flags.cs_enter_shrine,
+      name: '八重神子',
+      portrait: 'miko',
+      lines: [
+        '「你进来了。」',
+        '「五百年，这社一点没变。你知道为什么吗？」',
+        '「不是没人想变。是没人敢动。」',
+        '「社殿的柱子换过三次，神樱的根断过两次，只有这台阶——一级都没动过。」',
+        '「……我在想，如果我走了，这里会不会散。」',
+        '「算了。看那边，神樱的根。」',
+      ],
+      onEnd: () => G.flagSet('cs_enter_shrine'),
+    },
+    {
+      id: 'cs_after_beast',
+      cond: () => G.flags.chapter1_done && !G.flags.cs_after_beast,
+      name: '八重神子',
+      portrait: 'miko',
+      lines: [
+        '「雷兽倒了。」',
+        '「你下手很快。快到我来不及看它最后一眼。」',
+        '「……它不是我养的东西。我没有那个本事。」',
+        '「但它倒下去的时候，我在想一件事。」',
+        '「它为什么往上走？」',
+        '「底下有什么，逼得一头雷兽都要往上跑。」',
+      ],
+      onEnd: () => G.flagSet('cs_after_beast'),
+    },
+    {
+      id: 'cs_enter_town',
+      cond: () => G.flags.reached_town && !G.flags.cs_enter_town,
+      name: '',
+      portrait: null,
+      lines: [
+        '（町街的空气里有铁锈味，还有一点焦。）',
+        '（街上人不多。有人隔着窗看你，又立刻移开视线。）',
+        '（东口那边，有东西在动。）',
+      ],
+      onEnd: () => G.flagSet('cs_enter_town'),
+    },
+    {
+      id: 'cs_after_town_boss',
+      cond: () => G.flags.chapter2_done && !G.flags.cs_after_town_boss,
+      name: '枫原万叶',
+      portrait: 'kazuha',
+      lines: [
+        '「打完了？」',
+        '「我站在街那头，一直听。」',
+        '「风里有三种声音：你的雷，那个东西的喘，还有——街上的人在屏息。」',
+        '「现在只剩第一种了。」',
+        '「……不过，风还没停。它只是换了方向。」',
+        '「往上吹了。」',
+      ],
+      onEnd: () => G.flagSet('cs_after_town_boss'),
+    },
+    {
+      id: 'cs_enter_depths',
+      cond: () => G.flags.entered_depths && !G.flags.cs_enter_depths,
+      name: '',
+      portrait: null,
+      lines: [
+        '（这里没有风。）',
+        '（脚下的石阶是干净的。干净得不像有人来过。）',
+        '（但你听得见自己的心跳。）',
+        '（还有，很远的地方，有水滴在石头上。）',
+      ],
+      onEnd: () => G.flagSet('cs_enter_depths'),
+    },
+    {
+      id: 'cs_after_final',
+      cond: () => G.flags.final_boss && !G.flags.cs_after_final,
+      name: '',
+      portrait: null,
+      lines: [
+        '（它散了。）',
+        '（不是被打散的那种散。是像雾一样，慢慢淡掉的。）',
+        '（最后一刻它没有喊，也没有看你。）',
+        '（它好像在等什么，等了很久，最后没等到。）',
+        '（地面上有一样东西。）',
+        '（是一截断了的簪子。铜的。）',
+      ],
+      onEnd: () => G.flagSet('cs_after_final'),
+    },
+  ];
+
+  /** 每帧检查一次；有就播，播完设 flag */
+  G.checkCutscene = function () {
+    if (!G.CUTSCENES || !G.startDialogue) return false;
+    if (G.dialogue && G.dialogue.active) return false;
+    if (G.battle && G.battle.active) return false;
+    if (G.fade > 0.05) return false;
+    for (const c of G.CUTSCENES) {
+      let ok = false;
+      try { ok = c.cond(); } catch (e) { ok = false; }
+      if (!ok) continue;
+      const npc = {
+        id: c.id,
+        name: c.name,
+        portrait: c.portrait,
+        lines: c.lines.slice(),
+        onEnd: c.onEnd,
+        cutscene: true,
+      };
+      G.startDialogue(npc);
+      return true;
+    }
+    return false;
+  };
+})();
+
+</script>
+  <script>
+/**
  * battle-data.js —— 战斗数值与技能表（按《原神》设定）
  * 元素：雷 火 水 冰 风 岩 草
  * 反应：感电 超载 超导 蒸发 融化 扩散 结晶 原激化
@@ -5984,6 +6112,9 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     }
 
     if (G.ending && G.ending.active) { G.updateEnding(dt); return; }
+
+    // 章节过场：条件满足就自动播一段
+    if (G.checkCutscene && !G.dialogue.active && G.fade <= 0.05) G.checkCutscene();
 
     if (G.battle && G.battle.active) {
       G.battleUpdate(dt);
