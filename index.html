@@ -1074,17 +1074,21 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
     { id: 'go_torii', text: '沿参道走到鸟居', done: (f) => f.reached_torii },
     { id: 'meet_miko', text: '与八重神子交谈', done: (f) => f.met_miko },
     { id: 'enter_shrine', text: '穿过鸟居，进入鸣神大社境内', done: (f) => f.entered_shrine },
+    { id: 'hear_beast', text: '向神主或巫女打听雷兽的来历', done: (f) => f.heard_beast_lore },
     { id: 'kill_beast', text: '击退盘踞在神樱下的雷兽', done: (f) => f.killed_beast },
     { id: 'report', text: '回社殿向神子复命', done: (f) => f.reported },
     { id: 'finish', text: '第一章 · 完', done: (f) => f.chapter1_done },
     // 第二章
     { id: 'ch2_start', text: '下山，去稻妻城町街', done: (f) => f.reached_town },
     { id: 'ch2_ayaka', text: '在町街找到神里绫华', done: (f) => f.met_ayaka },
+    { id: 'ch2_kazuha', text: '和街上的枫原万叶谈谈', done: (f) => f.met_kazuha },
     { id: 'ch2_hili', text: '击退堵在街口的丘丘暴徒', done: (f) => f.town_hili_dead },
+    { id: 'ch2_teahouse', text: '回茶屋跟老伯说一声', done: (f) => f.told_teahouse },
     { id: 'ch2_back', text: '回鸣神大社，把町街的事告诉神子', done: (f) => f.ch2_reported },
     { id: 'ch2_done', text: '第二章 · 完', done: (f) => f.chapter2_done },
     // 终章
     { id: 'ch3_start', text: '从大社西侧进入奥宫', done: (f) => f.entered_depths },
+    { id: 'ch3_chiyo', text: '和深处的残响谈谈', done: (f) => f.met_chiyo },
     { id: 'ch3_boss', text: '击退祸津御建鸣神命', done: (f) => f.final_boss },
     { id: 'ch3_end', text: '终章 · 完', done: (f) => f.chapter3_done },
   ];
@@ -1999,7 +2003,14 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
         if (extra.shop) copy.shop = extra.shop;
         if (extra.secret) copy.secret = extra.secret;
         if (extra.talks) copy.talks = extra.talks;
-        if (extra.onEnd) copy.onEnd = extra.onEnd;
+        if (extra.onEnd) {
+          // onEnd 要「叠加」不是「覆盖」：地图里那份管剧情推进，story 里那份管台词旗标
+          const base = copy.onEnd;
+          const add = extra.onEnd;
+          copy.onEnd = base
+            ? () => { try { base(); } catch (e) {} try { add(); } catch (e) {} }
+            : add;
+        }
       }
       return copy;
     });
@@ -4554,6 +4565,40 @@ window.__ASSETS__ = {"assets/tiles.png": "data:image/png;base64,iVBORw0KGgoAAAAN
       G.sfx && G.sfx.play('levelup');
     },
   });
+})();
+
+</script>
+  <script>
+/**
+ * story_steps.js —— 主线中间目标的旗标
+ *
+ * 新加的 4 个目标都很轻：跟人说句话就完成。
+ * 不卡玩家，只是让任务栏有事可做、流程有停顿。
+ */
+(function () {
+  'use strict';
+  const G = (window.G = window.G || {});
+  const S = G.STORY || {};
+
+  /** 保留原来可能已有的 onEnd，追加一个 */
+  function also(id, fn) {
+    if (!S[id]) S[id] = {};
+    const prev = S[id].onEnd;
+    S[id].onEnd = function () {
+      if (typeof prev === 'function') prev();
+      fn();
+    };
+  }
+
+  // 神主、巫女：谁说都算
+  also('kannushi', () => G.flagSet('heard_beast_lore'));
+  also('shrine_miko', () => G.flagSet('heard_beast_lore'));
+  // 万叶：接过支线，同时算主线这一环
+  also('kazuha', () => G.flagSet('met_kazuha'));
+  // 茶屋老伯：打过招呼就算
+  also('teahouse', () => G.flagSet('told_teahouse'));
+  // 残响
+  also('chiyo_echo', () => G.flagSet('met_chiyo'));
 })();
 
 </script>
